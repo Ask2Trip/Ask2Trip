@@ -152,6 +152,31 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       .trim();
 
     const data = JSON.parse(clean);
+
+    // Enrichissement photos via Pixabay (si clé dispo)
+    const pixabayKey = process.env.PIXABAY_API_KEY;
+    if (pixabayKey) {
+      const getPhoto = async (query) => {
+        try {
+          const q = encodeURIComponent(query || 'travel');
+          const r = await fetch(`https://pixabay.com/api/?key=${pixabayKey}&q=${q}&image_type=photo&per_page=3&safesearch=true&orientation=horizontal`);
+          const j = await r.json();
+          return j.hits?.[0]?.webformatURL || null;
+        } catch { return null; }
+      };
+
+      const restoQueries = (data.restaurants || []).map(r => r.photo_query || r.type + ' restaurant food');
+      const hotelQueries = (data.hebergements || []).map(h => h.photo_query || h.type + ' hotel');
+
+      const [restoPhotos, hotelPhotos] = await Promise.all([
+        Promise.all(restoQueries.map(q => getPhoto(q))),
+        Promise.all(hotelQueries.map(q => getPhoto(q)))
+      ]);
+
+      if (data.restaurants) data.restaurants = data.restaurants.map((r, i) => ({ ...r, photo_url: restoPhotos[i] }));
+      if (data.hebergements) data.hebergements = data.hebergements.map((h, i) => ({ ...h, photo_url: hotelPhotos[i] }));
+    }
+
     return res.status(200).json(data);
 
   } catch (err) {
