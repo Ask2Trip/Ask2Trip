@@ -111,7 +111,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 8192
+          maxOutputTokens: 65536
         }
       })
     });
