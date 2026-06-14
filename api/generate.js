@@ -40,7 +40,7 @@ INSTRUCTIONS :
 - Les horaires doivent être réalistes (3-4 activités max par jour)
 - Adapte les recommandations au budget disponible
 - Pour les hébergements, propose EXACTEMENT 3 options : assigne "budget" au moins cher, "rapport" au meilleur rapport qualité/prix, "coup_de_coeur" au plus agréable/luxueux
-- Pour les restaurants, propose 5-6 adresses : assigne "chef" au restaurant que tu recommandes le plus (note, qualité), "rapport" au meilleur rapport qualité/prix, null pour les autres
+- Pour les restaurants, propose 5-6 adresses VARIÉES (pas de chaînes, pas de fast-food, que des établissements locaux et authentiques bien notés) : assigne "chef" UNIQUEMENT à un restaurant gastronomique ou très bien noté par les locaux (jamais une chaîne, jamais un fast-food), "rapport" au meilleur rapport qualité/prix parmi les adresses locales, null pour les autres
 
 Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balises markdown. Structure exacte :
 
@@ -178,25 +178,29 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       } catch { return null; }
     };
 
-    const getPixabayPhoto = async (query) => {
+    const getPixabayPhoto = async (query, category) => {
       if (!pixabayKey) return null;
       try {
         const q = encodeURIComponent(query || 'travel');
-        const r = await fetch(`https://pixabay.com/api/?key=${pixabayKey}&q=${q}&image_type=photo&per_page=3&safesearch=true&orientation=horizontal`);
+        const cat = category ? `&category=${category}` : '';
+        // per_page=5 + pick first to have more chances of a relevant result
+        const r = await fetch(`https://pixabay.com/api/?key=${pixabayKey}&q=${q}&image_type=photo&per_page=5&safesearch=true&orientation=horizontal&min_width=400${cat}`);
         const j = await r.json();
         return j.hits?.[0]?.webformatURL || null;
       } catch { return null; }
     };
 
-    const getPhoto = async (name, city, fallbackQuery) => {
+    const getPhoto = async (name, city, fallbackQuery, category) => {
       const placesUrl = await getPlacesPhoto(name, city);
       if (placesUrl) return placesUrl;
-      return getPixabayPhoto(fallbackQuery);
+      return getPixabayPhoto(fallbackQuery, category);
     };
 
     const [restoPhotos, hotelPhotos] = await Promise.all([
-      Promise.all((data.restaurants || []).map(r => getPhoto(r.nom, destination, r.photo_query || r.type + ' restaurant food'))),
-      Promise.all((data.hebergements || []).map(h => getPhoto(h.nom, destination, h.photo_query || h.type + ' hotel')))
+      // category=food force Pixabay à chercher dans les photos de nourriture uniquement
+      Promise.all((data.restaurants || []).map(r => getPhoto(r.nom, destination, r.photo_query || r.type + ' food dish', 'food'))),
+      // category=travel pour les hôtels
+      Promise.all((data.hebergements || []).map(h => getPhoto(h.nom, destination, h.photo_query || 'hotel room interior', 'travel')))
     ]);
 
     if (data.restaurants) data.restaurants = data.restaurants.map((r, i) => ({ ...r, photo_url: restoPhotos[i] }));
