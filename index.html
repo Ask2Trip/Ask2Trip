@@ -802,7 +802,10 @@
         body: JSON.stringify({ destination, depart, dateDebut, dateFin, budget, voyageurs, interets })
       });
 
-      if (!response.ok) throw new Error('Erreur serveur');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: 'Erreur serveur inconnue' }));
+        throw new Error(errData.error || 'Erreur serveur');
+      }
       const data = await response.json();
 
       document.getElementById('loading').classList.remove('show');
