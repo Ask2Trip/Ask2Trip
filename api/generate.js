@@ -1,7 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
 module.exports = async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -42,7 +39,6 @@ INSTRUCTIONS :
 - Adapte les recommandations au budget disponible
 - Pour les hébergements, propose 3 options de gammes différentes
 - Pour les restaurants, propose 5-6 adresses variées
-- Les liens GetYourGuide : https://www.getyourguide.fr/[ville]/activities/?partner_id=YOUR_PARTNER_ID
 
 Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balises markdown. Structure exacte :
 
@@ -105,13 +101,29 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 }`;
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
-    const result = await model.generateContent(prompt);
-    const rawText = result.response.text().trim();
+    const geminiRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 8192
+        }
+      })
+    });
 
-    // Nettoyage des éventuelles balises markdown
+    if (!geminiRes.ok) {
+      const errData = await geminiRes.json();
+      throw new Error(errData.error?.message || `Gemini error ${geminiRes.status}`);
+    }
+
+    const geminiData = await geminiRes.json();
+    const rawText = geminiData.candidates[0].content.parts[0].text.trim();
+
     const clean = rawText
       .replace(/^```json\n?/, '')
       .replace(/^```\n?/, '')
@@ -122,10 +134,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     return res.status(200).json(data);
 
   } catch (err) {
-    console.error('Erreur génération:', err);
-    if (err instanceof SyntaxError) {
-      return res.status(500).json({ error: 'Erreur de parsing — réessayez.' });
-    }
-    return res.status(500).json({ error: err.message || 'Erreur lors de la génération. Réessayez.' });
+    console.error('Erreur génération:', err.message);
+    return res.status(500).json({ error: err.message || 'Erreur lors de la génération.' });
   }
 };

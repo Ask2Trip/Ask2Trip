@@ -2,7 +2,5 @@
   "name": "ask2trip",
   "version": "1.0.0",
   "description": "Planificateur de voyage IA - Ask2Trip",
-  "dependencies": {
-    "@google/generative-ai": "^0.21.0"
-  }
+  "dependencies": {}
 }
