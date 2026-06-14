@@ -571,20 +571,35 @@
       width: 200px;
       min-height: 160px;
       flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 8px;
+    }
+    .hotel-thumb img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hotel-thumb-icon {
       font-size: 44px;
+      position: relative;
+      z-index: 1;
     }
     .hotel-thumb-label {
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.5px;
       text-transform: uppercase;
-      opacity: 0.7;
+      opacity: 0.8;
       color: white;
+      position: relative;
+      z-index: 1;
     }
     .hotel-body {
       flex: 1;
@@ -639,20 +654,35 @@
     .resto-thumb {
       width: 100%;
       height: 160px;
+      position: relative;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 8px;
+    }
+    .resto-thumb img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .resto-thumb-icon {
       font-size: 48px;
+      position: relative;
+      z-index: 1;
     }
     .resto-thumb-label {
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.5px;
       text-transform: uppercase;
-      opacity: 0.75;
+      opacity: 0.8;
       color: white;
+      position: relative;
+      z-index: 1;
     }
     .resto-body { padding: 16px; }
     .resto-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
@@ -1203,10 +1233,11 @@
           const hGrad = hotelGradients[(data.hebergements.indexOf(h)) % hotelGradients.length];
           return `
           <div class="hotel-card">
-            ${h.photo_url
-              ? `<img class="hotel-thumb" src="${h.photo_url}" alt="${h.nom}" style="object-fit:cover;" onerror="this.outerHTML='<div class=\\'hotel-thumb\\' style=\\'background:${hGrad};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;\\'><span style=\\'font-size:44px;\\'>${hEmoji}</span><span class=\\'hotel-thumb-label\\'>${h.etoiles || 3}★</span></div>'" />`
-              : `<div class="hotel-thumb" style="background:${hGrad};"><span style="font-size:44px;">${hEmoji}</span><span class="hotel-thumb-label">${h.etoiles || 3}★</span></div>`
-            }
+            <div class="hotel-thumb" style="background:${hGrad};">
+              ${h.photo_url ? `<img src="${h.photo_url}" alt="${h.nom}" />` : ''}
+              <span class="hotel-thumb-icon">${hEmoji}</span>
+              <span class="hotel-thumb-label">${h.etoiles || 3}★</span>
+            </div>
             <div class="hotel-body">
               <div class="hotel-name">${h.nom}</div>
               <div class="hotel-meta">
@@ -1255,10 +1286,11 @@
             const rEmoji = Object.entries(cuisineEmoji).find(([k]) => typeKey.includes(k))?.[1] || '🍽️';
             return `
             <div class="resto-card">
-              ${r.photo_url
-                ? `<img class="resto-thumb" src="${r.photo_url}" alt="${r.nom}" style="object-fit:cover;" onerror="this.outerHTML='<div class=\\'resto-thumb\\' style=\\'background:${rGrad};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;\\'><span style=\\'font-size:48px;\\'>${rEmoji}</span><span class=\\'resto-thumb-label\\'>${r.type || 'Restaurant'}</span></div>'" />`
-                : `<div class="resto-thumb" style="background:${rGrad};"><span style="font-size:48px;">${rEmoji}</span><span class="resto-thumb-label">${r.type || 'Restaurant'}</span></div>`
-              }
+              <div class="resto-thumb" style="background:${rGrad};">
+                ${r.photo_url ? `<img src="${r.photo_url}" alt="${r.nom}" />` : ''}
+                <span class="resto-thumb-icon">${rEmoji}</span>
+                <span class="resto-thumb-label">${r.type || 'Restaurant'}</span>
+              </div>
               <div class="resto-body">
                 <div class="resto-name">${r.nom}</div>
                 <div class="resto-meta">
