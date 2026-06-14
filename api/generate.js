@@ -32,6 +32,8 @@ DONNÉES DU VOYAGE :
 - Budget TOTAL : ${budget}€ (soit ~${budgetParPersonne}€ par personne)
 - Centres d'intérêt : ${(interets || []).join(', ') || 'culture, gastronomie'}
 
+IMPORTANT TRANSPORT : Analyse si la ville de départ (${depart || 'France'}) a un aéroport proche. Si la ville de départ n'a pas d'aéroport direct, indique l'aéroport le plus proche et calcule le trajet voiture (distance km, durée, estimation carburant en € et péages en €). Fais de même pour la destination si elle n'a pas d'aéroport.
+
 INSTRUCTIONS :
 - Génère EXACTEMENT ${nbJours} jours dans l'itinéraire
 - Propose des activités variées et authentiques, pas seulement les sites touristiques classiques
@@ -77,6 +79,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       "quartier": "Nom du quartier",
       "prix_nuit": "80-120€",
       "description": "Description attrayante",
+      "photo_query": "2-3 mots anglais décrivant l'hôtel ex: luxury hotel room",
       "points_forts": ["Avantage 1", "Avantage 2"]
     }
   ],
@@ -91,6 +94,23 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       "photo_query": "2-3 mots anglais décrivant le plat ou la cuisine ex: sushi japanese food"
     }
   ],
+  "transport": {
+    "depart_has_airport": true,
+    "depart_airport": "Nom et code IATA de l'aéroport de départ ou le plus proche",
+    "depart_drive_km": null,
+    "depart_drive_duration": null,
+    "depart_fuel_estimate": null,
+    "depart_tolls_estimate": null,
+    "destination_has_airport": true,
+    "destination_airport": "Nom et code IATA de l'aéroport d'arrivée ou le plus proche",
+    "destination_drive_km": null,
+    "destination_drive_duration": null,
+    "destination_fuel_estimate": null,
+    "destination_tolls_estimate": null,
+    "flight_duration": "Durée estimée du vol",
+    "iata_from": "code IATA aéroport départ ex CDG",
+    "iata_to": "code IATA aéroport arrivée ex FCO"
+  },
   "budget_estime": {
     "vols": "XXX€",
     "hebergement": "XXX€",

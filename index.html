@@ -423,21 +423,31 @@
       background: white;
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 24px;
+      overflow: hidden;
       margin-bottom: 16px;
       display: flex;
-      gap: 20px;
+      gap: 0;
     }
-    .hotel-icon {
-      width: 52px;
-      height: 52px;
+    .hotel-photo {
+      width: 200px;
+      min-height: 160px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #e0e7ff;
+    }
+    .hotel-photo-fallback {
+      width: 200px;
+      min-height: 160px;
+      flex-shrink: 0;
       background: linear-gradient(135deg, var(--primary-light), #ddd6fe);
-      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
-      flex-shrink: 0;
+      font-size: 40px;
+    }
+    .hotel-body {
+      flex: 1;
+      padding: 20px;
     }
     .hotel-info { flex: 1; }
     .hotel-name { font-weight: 700; font-size: 17px; margin-bottom: 4px; }
@@ -666,6 +676,7 @@
       .tabs { gap: 2px; }
       .tab-btn { font-size: 12px; padding: 8px 10px; }
       .hotel-card { flex-direction: column; }
+      .hotel-photo, .hotel-photo-fallback { width: 100%; min-height: 160px; }
     }
   </style>
 </head>
@@ -879,17 +890,23 @@
     return `https://www.getyourguide.fr/${slug}/activities/?partner_id=YOUR_PARTNER_ID`;
   }
 
-  function skyscannerLink(depart, destination) {
-    const q = encodeURIComponent((depart || '') + ' ' + destination);
-    return `https://www.skyscanner.fr/transport/vols/?origin=${encodeURIComponent(depart || '')}&destination=${encodeURIComponent(destination)}`;
+  function googleFlightsLink(depart, destination, iataFrom, iataTo) {
+    if (iataFrom && iataTo) {
+      return `https://www.google.com/travel/flights/search?tfs=CBwQARoeEgoyMDI2LTA3LTAxagcIARIDUEFScgcIARIDUEFSGh4SCjIwMjYtMDctMDhqBwgBEgNQQVJyBwgBEgNQQVIqAggCckIIAhIBMSICCAIqAggC`;
+    }
+    return `https://www.google.com/travel/flights?q=vols+${encodeURIComponent(depart||'Paris')}+vers+${encodeURIComponent(destination)}`;
   }
 
-  function googleFlightsLink(depart, destination) {
-    return `https://www.google.com/travel/flights?q=vols+${encodeURIComponent(depart||'Paris')}+${encodeURIComponent(destination)}`;
+  function kayakLink(iataFrom, iataTo, dateDebut, dateFin) {
+    if (!iataFrom || !iataTo) return null;
+    const d1 = dateDebut.replace(/-/g,'');
+    const d2 = dateFin.replace(/-/g,'');
+    return `https://www.kayak.fr/vols/${iataFrom}-${iataTo}/${d1}/${d2}`;
   }
 
   function renderResults(data, params) {
     const { destination, depart, dateDebut, dateFin, budget, voyageurs } = params;
+    window._currentParams = params;
     const nbJours = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
 
     const html = `
@@ -904,15 +921,48 @@
         </div>
       </div>
 
-      ${depart ? `
-      <div class="affil-banner">
-        <span class="affil-icon">✈️</span>
-        <span>Trouvez les meilleurs vols depuis ${depart} →
-          <a href="${googleFlightsLink(depart, destination)}" target="_blank" style="color:#166534;font-weight:700;">Google Flights →</a>
-          &nbsp;·&nbsp;
-          <a href="${skyscannerLink(depart, destination)}" target="_blank" style="color:#166534;font-weight:700;">Skyscanner →</a>
-        </span>
-      </div>` : ''}
+      ${(function() {
+        const t = data.transport || {};
+        const gfLink = googleFlightsLink(depart, destination, t.iata_from, t.iata_to);
+        const kayak = kayakLink(t.iata_from, t.iata_to, params.dateDebut, params.dateFin);
+        let html = '';
+
+        // Bandeau vols
+        html += `<div class="affil-banner">
+          <span class="affil-icon">✈️</span>
+          <div style="flex:1">
+            <strong>Vols ${depart ? 'depuis ' + depart : ''} → ${destination}</strong>
+            ${t.depart_airport ? `<span style="opacity:.8;font-size:13px;margin-left:8px;">(aéroport : ${t.depart_airport})</span>` : ''}
+            <br><span style="font-size:13px;opacity:.85;">${t.flight_duration || ''}</span>
+            <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;">
+              <a href="${gfLink}" target="_blank" style="color:#166534;font-weight:700;">Google Flights →</a>
+              ${kayak ? `<a href="${kayak}" target="_blank" style="color:#166534;font-weight:700;">Kayak →</a>` : ''}
+            </div>
+          </div>
+        </div>`;
+
+        // Trajet voiture si pas d'aéroport direct
+        if (!t.depart_has_airport && t.depart_drive_km) {
+          html += `<div class="affil-banner" style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-color:#fde047;color:#713f12;margin-top:12px;">
+            <span class="affil-icon">🚗</span>
+            <div>
+              <strong>Trajet voiture vers ${t.depart_airport}</strong><br>
+              <span style="font-size:13px;">${t.depart_drive_km} km · ${t.depart_drive_duration} · Carburant ≈ ${t.depart_fuel_estimate || '—'} · Péages ≈ ${t.depart_tolls_estimate || '—'}</span>
+              <br><a href="https://www.viamichelin.fr/web/Itineraires?from=${encodeURIComponent(depart||'')}&to=${encodeURIComponent(t.depart_airport||'')}" target="_blank" style="color:#92400e;font-weight:700;font-size:13px;">Calculer l'itinéraire ViaMichelin →</a>
+            </div>
+          </div>`;
+        }
+        if (!t.destination_has_airport && t.destination_drive_km) {
+          html += `<div class="affil-banner" style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-color:#fde047;color:#713f12;margin-top:12px;">
+            <span class="affil-icon">🚗</span>
+            <div>
+              <strong>Depuis l'aéroport vers ${destination}</strong><br>
+              <span style="font-size:13px;">${t.destination_drive_km} km · ${t.destination_drive_duration} · Carburant ≈ ${t.destination_fuel_estimate || '—'} · Péages ≈ ${t.destination_tolls_estimate || '—'}</span>
+            </div>
+          </div>`;
+        }
+        return html;
+      })()}
 
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('itineraire', this)">🗓️ Itinéraire</button>
@@ -954,10 +1004,13 @@
       <!-- HÉBERGEMENTS -->
       <div class="tab-content" id="tab-hebergements">
         <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">Sélection des meilleurs hébergements pour votre voyage, du plus économique au plus confortable.</p>
-        ${(data.hebergements || []).map(h => `
+        ${(data.hebergements || []).map(h => {
+          const hotelQ = encodeURIComponent(h.photo_query || h.type || 'hotel room');
+          return `
           <div class="hotel-card">
-            <div class="hotel-icon">🏨</div>
-            <div class="hotel-info">
+            <img class="hotel-photo" src="https://loremflickr.com/200/160/${hotelQ}" alt="${h.nom}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" loading="lazy" />
+            <div class="hotel-photo-fallback" style="display:none;">🏨</div>
+            <div class="hotel-body">
               <div class="hotel-name">${h.nom}</div>
               <div class="hotel-meta">
                 <span class="hotel-tag hotel-stars">${starsHTML(h.etoiles || 3)}</span>
@@ -969,7 +1022,7 @@
               <a href="${bookingLink(h.nom + ' ' + destination)}" target="_blank" class="btn-book">🏨 Voir sur Booking.com →</a>
             </div>
           </div>
-        `).join('')}
+        `}).join('')}
       </div>
 
       <!-- RESTAURANTS -->
@@ -982,7 +1035,7 @@
             const mapsQ = encodeURIComponent(r.nom + ' ' + destination);
             return `
             <div class="resto-card">
-              <img class="resto-photo" src="https://source.unsplash.com/featured/400x200/?${photoQ}" alt="${r.nom}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" loading="lazy" />
+              <img class="resto-photo" src="https://loremflickr.com/400/200/${photoQ}" alt="${r.nom}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" loading="lazy" />
               <div class="resto-photo-fallback" style="display:none;">🍽️</div>
               <div class="resto-body">
                 <div class="resto-name">${r.nom}</div>
@@ -1058,7 +1111,9 @@
 
     const values = keys.map(k => {
       const raw = (budgetEstime || {})[k] || '0';
-      const num = parseInt(raw.replace(/[^\d]/g,'')) || 0;
+      // Extract all numbers in the string (handles ranges like "800-1200€")
+      const nums = raw.match(/\d+/g);
+      const num = nums ? Math.round(nums.map(Number).reduce((a,b)=>a+b,0)/nums.length) : 0;
       return num;
     });
 
