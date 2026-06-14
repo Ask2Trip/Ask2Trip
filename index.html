@@ -740,7 +740,8 @@
 <script>
   // Gestion des chips d'intérêt
   document.querySelectorAll('.interest-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
+    chip.addEventListener('click', (e) => {
+      e.preventDefault(); // évite le double-toggle du label
       chip.classList.toggle('selected');
     });
   });
@@ -810,7 +811,7 @@
       document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
       document.getElementById('loading').classList.remove('show');
-      alert('Une erreur est survenue. Veuillez réessayer.');
+      alert('Erreur : ' + (err.message || 'Inconnue') + '\n\nVérifiez la console (F12) pour plus de détails.');
       console.error(err);
     } finally {
       document.getElementById('btnGenerate').disabled = false;
