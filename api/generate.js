@@ -50,7 +50,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     "monnaie": "Devise locale et taux de change approximatif",
     "langue": "Langue(s) parlée(s) et mots utiles",
     "visa": "Informations visa pour les Français",
-    "conseils": ["Conseil 1", "Conseil 2", "Conseil 3", "Conseil 4", "Conseil 5"]
+    "conseils": ["Conseil essentiel 1", "Conseil essentiel 2", "Conseil essentiel 3"]
   },
   "itineraire": [
     {
@@ -87,7 +87,8 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       "prix": "€€",
       "specialite": "Plat signature",
       "quartier": "Quartier",
-      "description": "Pourquoi ce restaurant est incontournable"
+      "description": "Pourquoi ce restaurant est incontournable (2 phrases max)",
+      "photo_query": "2-3 mots anglais décrivant le plat ou la cuisine ex: sushi japanese food"
     }
   ],
   "budget_estime": {

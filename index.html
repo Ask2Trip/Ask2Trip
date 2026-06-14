@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ask2Trip — Planifiez votre voyage parfait</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -475,20 +476,61 @@
     /* RESTAURANTS */
     .resto-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
     }
     .resto-card {
       background: white;
-      border-radius: 12px;
+      border-radius: 16px;
       box-shadow: var(--shadow);
-      padding: 20px;
+      overflow: hidden;
     }
-    .resto-emoji { font-size: 28px; margin-bottom: 10px; }
+    .resto-photo {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      display: block;
+      background: linear-gradient(135deg, var(--primary-light), #ddd6fe);
+    }
+    .resto-photo-fallback {
+      width: 100%;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 52px;
+      background: linear-gradient(135deg, var(--primary-light), #ddd6fe);
+    }
+    .resto-body { padding: 16px; }
     .resto-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
-    .resto-type { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
-    .resto-price { font-size: 13px; font-weight: 600; color: var(--success); margin-bottom: 8px; }
-    .resto-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+    .resto-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .resto-price { font-size: 13px; font-weight: 700; color: var(--success); }
+    .resto-spec { font-size: 13px; color: var(--primary); font-weight: 600; }
+    .resto-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+    .resto-links { display: flex; gap: 8px; }
+
+    /* BUDGET CHART */
+    .chart-container {
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .chart-canvas-wrap { flex: 0 0 220px; height: 220px; }
+    .chart-legend { flex: 1; min-width: 180px; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
 
     /* BUDGET */
     .budget-grid {
@@ -838,9 +880,12 @@
   }
 
   function skyscannerLink(depart, destination) {
-    const from = (depart || 'par').toLowerCase().replace(/\s+/g, '-');
-    const to = destination.toLowerCase().replace(/\s+/g, '-');
-    return `https://www.skyscanner.fr/transport/vols/${from}/${to}/`;
+    const q = encodeURIComponent((depart || '') + ' ' + destination);
+    return `https://www.skyscanner.fr/transport/vols/?origin=${encodeURIComponent(depart || '')}&destination=${encodeURIComponent(destination)}`;
+  }
+
+  function googleFlightsLink(depart, destination) {
+    return `https://www.google.com/travel/flights?q=vols+${encodeURIComponent(depart||'Paris')}+${encodeURIComponent(destination)}`;
   }
 
   function renderResults(data, params) {
@@ -862,7 +907,11 @@
       ${depart ? `
       <div class="affil-banner">
         <span class="affil-icon">✈️</span>
-        <span>Trouvez les meilleurs vols depuis ${depart} → <a href="${skyscannerLink(depart, destination)}" target="_blank" style="color:#166534;font-weight:700;">Comparer les vols sur Skyscanner →</a></span>
+        <span>Trouvez les meilleurs vols depuis ${depart} →
+          <a href="${googleFlightsLink(depart, destination)}" target="_blank" style="color:#166534;font-weight:700;">Google Flights →</a>
+          &nbsp;·&nbsp;
+          <a href="${skyscannerLink(depart, destination)}" target="_blank" style="color:#166534;font-weight:700;">Skyscanner →</a>
+        </span>
       </div>` : ''}
 
       <div class="tabs">
@@ -927,21 +976,41 @@
       <div class="tab-content" id="tab-restaurants">
         <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">Les meilleures tables sélectionnées par notre IA selon vos préférences.</p>
         <div class="resto-grid">
-          ${(data.restaurants || []).map(r => `
+          ${(data.restaurants || []).map(r => {
+            const photoQ = encodeURIComponent(r.photo_query || r.type || 'restaurant food');
+            const googleQ = encodeURIComponent(r.nom + ' ' + destination + ' restaurant');
+            const mapsQ = encodeURIComponent(r.nom + ' ' + destination);
+            return `
             <div class="resto-card">
-              <div class="resto-emoji">🍽️</div>
-              <div class="resto-name">${r.nom}</div>
-              <div class="resto-type">${r.type || ''} · ${r.quartier || ''}</div>
-              <div class="resto-price">${r.prix || '€€'}</div>
-              <div class="resto-desc">${r.description || ''}</div>
-            </div>
-          `).join('')}
+              <img class="resto-photo" src="https://source.unsplash.com/featured/400x200/?${photoQ}" alt="${r.nom}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" loading="lazy" />
+              <div class="resto-photo-fallback" style="display:none;">🍽️</div>
+              <div class="resto-body">
+                <div class="resto-name">${r.nom}</div>
+                <div class="resto-meta">
+                  <span class="resto-price">${r.prix || '€€'}</span>
+                  <span>·</span>
+                  <span class="resto-spec">${r.specialite || r.type || ''}</span>
+                  <span>·</span>
+                  <span style="color:var(--text-muted)">${r.quartier || ''}</span>
+                </div>
+                <div class="resto-desc">${r.description || ''}</div>
+                <div class="resto-links">
+                  <a href="https://www.google.fr/search?q=${googleQ}" target="_blank" class="btn-link">🔍 Voir sur Google</a>
+                  <a href="https://maps.google.com/?q=${mapsQ}" target="_blank" class="btn-link">📍 Google Maps</a>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
         </div>
       </div>
 
       <!-- BUDGET -->
       <div class="tab-content" id="tab-budget">
         <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">Estimation du budget par personne pour votre voyage.</p>
+        <div class="chart-container">
+          <div class="chart-canvas-wrap"><canvas id="budgetChart"></canvas></div>
+          <div class="chart-legend" id="budgetLegend"></div>
+        </div>
         <div class="budget-grid">
           <div class="budget-item"><div class="budget-icon">✈️</div><div class="budget-label">Vols</div><div class="budget-amount">${(data.budget_estime || {}).vols || '—'}</div></div>
           <div class="budget-item"><div class="budget-icon">🏨</div><div class="budget-label">Hébergement</div><div class="budget-amount">${(data.budget_estime || {}).hebergement || '—'}</div></div>
@@ -960,13 +1029,11 @@
         <div class="tips-grid">
           <div class="tip-card"><div class="tip-icon">🌤️</div><div class="tip-label">Météo</div><div class="tip-value">${(data.conseils_pratiques || {}).meteo || '—'}</div></div>
           <div class="tip-card"><div class="tip-icon">💶</div><div class="tip-label">Monnaie</div><div class="tip-value">${(data.conseils_pratiques || {}).monnaie || '—'}</div></div>
-          <div class="tip-card"><div class="tip-icon">🗣️</div><div class="tip-label">Langue</div><div class="tip-value">${(data.conseils_pratiques || {}).langue || '—'}</div></div>
           <div class="tip-card"><div class="tip-icon">🛂</div><div class="tip-label">Visa</div><div class="tip-value">${(data.conseils_pratiques || {}).visa || '—'}</div></div>
-          <div class="tip-card"><div class="tip-icon">📅</div><div class="tip-label">Meilleure période</div><div class="tip-value">${(data.conseils_pratiques || {}).meilleure_periode || '—'}</div></div>
         </div>
         ${(data.conseils_pratiques || {}).conseils && data.conseils_pratiques.conseils.length ? `
           <div class="conseils-list">
-            <h3>💡 Conseils essentiels</h3>
+            <h3>💡 À savoir avant de partir</h3>
             ${data.conseils_pratiques.conseils.map(c => `
               <div class="conseil-item"><div class="conseil-dot"></div><div>${c}</div></div>
             `).join('')}
@@ -974,32 +1041,57 @@
         ` : ''}
       </div>
 
-      <!-- OUTILS RECOMMANDÉS -->
-      <div class="tools-section">
-        <h3>🎬 Créez votre vidéo de voyage</h3>
-        <p>Ces outils vous permettent de créer des vidéos et contenus pour votre voyage, sans montrer votre visage.</p>
-        <div class="tools-grid">
-          <a href="https://elevenlabs.io" target="_blank" class="tool-card">
-            <div class="tool-emoji">🎙️</div>
-            <div><div class="tool-name">ElevenLabs</div><div class="tool-desc">Voix IA ultra-réaliste pour vos vidéos</div></div>
-          </a>
-          <a href="https://www.capcut.com/fr-fr/" target="_blank" class="tool-card">
-            <div class="tool-emoji">✂️</div>
-            <div><div class="tool-name">CapCut</div><div class="tool-desc">Montage vidéo simple et gratuit</div></div>
-          </a>
-          <a href="https://runwayml.com" target="_blank" class="tool-card">
-            <div class="tool-emoji">🎥</div>
-            <div><div class="tool-name">Runway</div><div class="tool-desc">Génération de vidéos et images IA</div></div>
-          </a>
-          <a href="https://www.canva.com/fr_fr/" target="_blank" class="tool-card">
-            <div class="tool-emoji">🎨</div>
-            <div><div class="tool-name">Canva</div><div class="tool-desc">Visuels et thumbnails professionnels</div></div>
-          </a>
-        </div>
-      </div>
     `;
 
     document.getElementById('resultsContent').innerHTML = html;
+    window._lastBudgetEstime = data.budget_estime;
+    setTimeout(() => buildBudgetChart(data.budget_estime), 100);
+  }
+
+  let budgetChartInstance = null;
+
+  function buildBudgetChart(budgetEstime) {
+    const colors = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444'];
+    const labels = ['Vols','Hébergement','Activités','Repas','Divers'];
+    const keys   = ['vols','hebergement','activites','repas','divers'];
+    const icons  = ['✈️','🏨','🎯','🍽️','🛍️'];
+
+    const values = keys.map(k => {
+      const raw = (budgetEstime || {})[k] || '0';
+      const num = parseInt(raw.replace(/[^\d]/g,'')) || 0;
+      return num;
+    });
+
+    const total = values.reduce((a,b) => a+b, 0) || 1;
+
+    const ctx = document.getElementById('budgetChart');
+    if (!ctx) return;
+    if (budgetChartInstance) budgetChartInstance.destroy();
+
+    budgetChartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+      },
+      options: {
+        cutout: '65%',
+        plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: (ctx) => ` ${ctx.label} : ${ctx.raw}€` }
+        }},
+        animation: { animateScale: true }
+      }
+    });
+
+    const legend = document.getElementById('budgetLegend');
+    if (legend) {
+      legend.innerHTML = labels.map((l,i) => `
+        <div class="legend-item">
+          <div class="legend-dot" style="background:${colors[i]}"></div>
+          <span>${icons[i]} <strong>${l}</strong> — ${values[i]}€ (${Math.round(values[i]/total*100)}%)</span>
+        </div>
+      `).join('');
+    }
   }
 
   function switchTab(tab, btn) {
@@ -1007,6 +1099,9 @@
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     btn.classList.add('active');
+    if (tab === 'budget' && window._lastBudgetEstime) {
+      setTimeout(() => buildBudgetChart(window._lastBudgetEstime), 50);
+    }
   }
 </script>
 </body>
