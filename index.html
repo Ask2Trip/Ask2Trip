@@ -601,6 +601,26 @@
       position: relative;
       z-index: 1;
     }
+    .card-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      padding: 5px 11px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      backdrop-filter: blur(4px);
+    }
+    .badge-budget  { background: #1d4ed8; color: white; }
+    .badge-rapport { background: #15803d; color: white; }
+    .badge-coup_de_coeur { background: linear-gradient(90deg,#7c3aed,#db2777); color: white; }
+    .badge-chef    { background: linear-gradient(90deg,#b45309,#d97706); color: white; }
     .hotel-body {
       flex: 1;
       padding: 20px;
@@ -1241,8 +1261,15 @@
           const hotelEmojis = { 'Hôtel':' 🏨','Hotel':'🏨','Auberge':'🏠','Hostel':'🏠','Appartement':'🏢','Villa':'🏡','Resort':'🌴' };
           const hEmoji = hotelEmojis[h.type] || '🏨';
           const hGrad = hotelGradients[(data.hebergements.indexOf(h)) % hotelGradients.length];
+          const badgeConfig = {
+            'budget':        { cls: 'badge-budget',        icon: '💰', label: 'Meilleur prix' },
+            'rapport':       { cls: 'badge-rapport',       icon: '⭐', label: 'Rapport Q/P' },
+            'coup_de_coeur': { cls: 'badge-coup_de_coeur', icon: '✨', label: 'Coup de cœur' },
+          };
+          const hBadge = badgeConfig[h.badge] || null;
           return `
-          <div class="hotel-card">
+          <div class="hotel-card" style="position:relative;">
+            ${hBadge ? `<div class="card-badge ${hBadge.cls}">${hBadge.icon} ${hBadge.label}</div>` : ''}
             <div class="hotel-thumb" style="background:${hGrad};">
               ${h.photo_url ? `<img src="${h.photo_url}" alt="${h.nom}" />` : `<span class="hotel-thumb-icon">${hEmoji}</span><span class="hotel-thumb-label">${h.etoiles || 3}★</span>`}
             </div>
@@ -1292,8 +1319,13 @@
             const rGrad = restoGradients[rIdx % restoGradients.length];
             const typeKey = (r.type || '').toLowerCase();
             const rEmoji = Object.entries(cuisineEmoji).find(([k]) => typeKey.includes(k))?.[1] || '🍽️';
+            const restoBadge = {
+              'chef':    { cls: 'badge-chef',    icon: '👨‍🍳', label: 'Le choix du chef' },
+              'rapport': { cls: 'badge-rapport', icon: '⭐',   label: 'Top rapport Q/P' },
+            }[r.badge] || null;
             return `
-            <div class="resto-card">
+            <div class="resto-card" style="position:relative;">
+              ${restoBadge ? `<div class="card-badge ${restoBadge.cls}">${restoBadge.icon} ${restoBadge.label}</div>` : ''}
               <div class="resto-thumb" style="background:${rGrad};">
                 ${r.photo_url ? `<img src="${r.photo_url}" alt="${r.nom}" />` : `<span class="resto-thumb-icon">${rEmoji}</span><span class="resto-thumb-label">${r.type || 'Restaurant'}</span>`}
               </div>

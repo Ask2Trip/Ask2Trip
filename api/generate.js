@@ -39,8 +39,8 @@ INSTRUCTIONS :
 - Propose des activités variées et authentiques, pas seulement les sites touristiques classiques
 - Les horaires doivent être réalistes (3-4 activités max par jour)
 - Adapte les recommandations au budget disponible
-- Pour les hébergements, propose 3 options de gammes différentes
-- Pour les restaurants, propose 5-6 adresses variées
+- Pour les hébergements, propose EXACTEMENT 3 options : assigne "budget" au moins cher, "rapport" au meilleur rapport qualité/prix, "coup_de_coeur" au plus agréable/luxueux
+- Pour les restaurants, propose 5-6 adresses : assigne "chef" au restaurant que tu recommandes le plus (note, qualité), "rapport" au meilleur rapport qualité/prix, null pour les autres
 
 Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balises markdown. Structure exacte :
 
@@ -80,6 +80,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       "prix_nuit": "80-120€",
       "description": "Description attrayante",
       "photo_query": "2-3 mots anglais décrivant l'hôtel ex: luxury hotel room",
+      "badge": "budget",
       "points_forts": ["Avantage 1", "Avantage 2"]
     }
   ],
@@ -91,7 +92,8 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       "specialite": "Plat signature",
       "quartier": "Quartier",
       "description": "Pourquoi ce restaurant est incontournable (2 phrases max)",
-      "photo_query": "2-3 mots anglais décrivant le plat ou la cuisine ex: sushi japanese food"
+      "photo_query": "2-3 mots anglais décrivant le plat ou la cuisine ex: sushi japanese food",
+      "badge": null
     }
   ],
   "transport": {
@@ -153,29 +155,52 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
     const data = JSON.parse(clean);
 
-    // Enrichissement photos via Pixabay (si clé dispo)
+    // Photos : Google Places (précis) avec fallback Pixabay (stock)
+    const placesKey = process.env.GOOGLE_PLACES_API_KEY;
     const pixabayKey = process.env.PIXABAY_API_KEY;
-    if (pixabayKey) {
-      const getPhoto = async (query) => {
-        try {
-          const q = encodeURIComponent(query || 'travel');
-          const r = await fetch(`https://pixabay.com/api/?key=${pixabayKey}&q=${q}&image_type=photo&per_page=3&safesearch=true&orientation=horizontal`);
-          const j = await r.json();
-          return j.hits?.[0]?.webformatURL || null;
-        } catch { return null; }
-      };
 
-      const restoQueries = (data.restaurants || []).map(r => r.photo_query || r.type + ' restaurant food');
-      const hotelQueries = (data.hebergements || []).map(h => h.photo_query || h.type + ' hotel');
+    const getPlacesPhoto = async (name, city) => {
+      if (!placesKey) return null;
+      try {
+        const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': placesKey,
+            'X-Goog-FieldMask': 'places.photos'
+          },
+          body: JSON.stringify({ textQuery: `${name} ${city}`, languageCode: 'fr' })
+        });
+        const sd = await searchRes.json();
+        const photoName = sd.places?.[0]?.photos?.[0]?.name;
+        if (!photoName) return null;
+        return `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=400&key=${placesKey}`;
+      } catch { return null; }
+    };
 
-      const [restoPhotos, hotelPhotos] = await Promise.all([
-        Promise.all(restoQueries.map(q => getPhoto(q))),
-        Promise.all(hotelQueries.map(q => getPhoto(q)))
-      ]);
+    const getPixabayPhoto = async (query) => {
+      if (!pixabayKey) return null;
+      try {
+        const q = encodeURIComponent(query || 'travel');
+        const r = await fetch(`https://pixabay.com/api/?key=${pixabayKey}&q=${q}&image_type=photo&per_page=3&safesearch=true&orientation=horizontal`);
+        const j = await r.json();
+        return j.hits?.[0]?.webformatURL || null;
+      } catch { return null; }
+    };
 
-      if (data.restaurants) data.restaurants = data.restaurants.map((r, i) => ({ ...r, photo_url: restoPhotos[i] }));
-      if (data.hebergements) data.hebergements = data.hebergements.map((h, i) => ({ ...h, photo_url: hotelPhotos[i] }));
-    }
+    const getPhoto = async (name, city, fallbackQuery) => {
+      const placesUrl = await getPlacesPhoto(name, city);
+      if (placesUrl) return placesUrl;
+      return getPixabayPhoto(fallbackQuery);
+    };
+
+    const [restoPhotos, hotelPhotos] = await Promise.all([
+      Promise.all((data.restaurants || []).map(r => getPhoto(r.nom, destination, r.photo_query || r.type + ' restaurant food'))),
+      Promise.all((data.hebergements || []).map(h => getPhoto(h.nom, destination, h.photo_query || h.type + ' hotel')))
+    ]);
+
+    if (data.restaurants) data.restaurants = data.restaurants.map((r, i) => ({ ...r, photo_url: restoPhotos[i] }));
+    if (data.hebergements) data.hebergements = data.hebergements.map((h, i) => ({ ...h, photo_url: hotelPhotos[i] }));
 
     return res.status(200).json(data);
 
