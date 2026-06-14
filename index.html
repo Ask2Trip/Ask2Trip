@@ -1003,24 +1003,28 @@
 
   let loadingStepTimer = null;
 
+  let _loadingPulseInterval = null;
+
   function showLoadingSteps(destination) {
     const destEl = document.getElementById('loadingDest');
     if (destEl && destination) destEl.textContent = '— ' + destination;
 
     const steps = ['step1','step2','step3','step4','step5','step6'];
     const fill = document.getElementById('loadingProgressFill');
-    const durations = [0, 1800, 3600, 5400, 7200, 9000];
+    // Spread over ~24s so there's always something moving
+    const durations = [0, 4000, 8000, 12000, 17000, 22000];
     let currentActive = -1;
 
     steps.forEach(id => {
       const el = document.getElementById(id);
-      if (el) { el.className = 'loading-step'; }
+      if (el) el.className = 'loading-step';
     });
     if (fill) fill.style.width = '0%';
 
+    if (_loadingPulseInterval) clearInterval(_loadingPulseInterval);
+
     steps.forEach((id, i) => {
       setTimeout(() => {
-        // Mark previous as done
         if (currentActive >= 0) {
           const prev = document.getElementById(steps[currentActive]);
           if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
@@ -1028,9 +1032,25 @@
         currentActive = i;
         const el = document.getElementById(id);
         if (el) el.classList.add('active');
-        if (fill) fill.style.width = `${Math.round((i + 1) / steps.length * 85)}%`;
+        if (fill) fill.style.width = `${Math.round((i + 1) / steps.length * 82)}%`;
+
+        // Après le dernier step : pulse la barre pour montrer que ça tourne encore
+        if (i === steps.length - 1) {
+          const waitMessages = ['⏳ Finalisation en cours…','🔄 Presque prêt…','✨ On peaufine les derniers détails…'];
+          let wIdx = 0;
+          _loadingPulseInterval = setInterval(() => {
+            wIdx = (wIdx + 1) % waitMessages.length;
+            if (el) el.querySelector('.step-dot') && (el.querySelector('.step-dot').style.animationDuration = '0.6s');
+          }, 3000);
+        }
       }, durations[i]);
     });
+  }
+
+  function stopLoadingAnimation() {
+    if (_loadingPulseInterval) { clearInterval(_loadingPulseInterval); _loadingPulseInterval = null; }
+    const fill = document.getElementById('loadingProgressFill');
+    if (fill) fill.style.width = '100%';
   }
 
   async function generateTrip() {
@@ -1074,8 +1094,7 @@
       }
       const data = await response.json();
 
-      const fill = document.getElementById('loadingProgressFill');
-      if (fill) fill.style.width = '100%';
+      stopLoadingAnimation();
       await new Promise(r => setTimeout(r, 400));
       document.getElementById('loading').classList.remove('show');
       renderResults(data, { destination, depart, dateDebut, dateFin, budget, voyageurs });
@@ -1100,26 +1119,17 @@
     return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}&lang=fr&aid=YOUR_AID`;
   }
 
-  function gygLink(destination) {
-    // ⚠️ Remplacer YOUR_PARTNER_ID par votre ID affilié GetYourGuide
-    const slug = destination.toLowerCase().replace(/\s+/g, '-');
-    return `https://www.getyourguide.fr/${slug}/activities/?partner_id=YOUR_PARTNER_ID`;
+  function gygLink(activityName, destination) {
+    const q = encodeURIComponent((activityName || '') + ' ' + (destination || ''));
+    return `https://www.getyourguide.fr/s/?q=${q}`;
   }
 
-  function googleFlightsLink(depart, destination, iataFrom, iataTo) {
-    if (iataFrom && iataTo) {
-      return `https://www.google.com/travel/flights?q=vols+${iataFrom}+vers+${iataTo}`;
-    }
-    return `https://www.google.com/travel/flights?q=vols+${encodeURIComponent(depart||'Paris')}+vers+${encodeURIComponent(destination)}`;
+  function googleFlightsLink() {
+    return 'https://www.google.com/travel/flights';
   }
 
-  function skyscannerLink(iataFrom, iataTo, dateDebut, dateFin, voyageurs) {
-    if (!iataFrom || !iataTo || !dateDebut || !dateFin) return null;
-    // Format YYMMDD : "2026-07-14" → "260714"
-    const d1 = dateDebut.slice(2).replace(/-/g,'');
-    const d2 = dateFin.slice(2).replace(/-/g,'');
-    const adults = voyageurs || 1;
-    return `https://www.skyscanner.fr/transport/vols/${iataFrom.toLowerCase()}/${iataTo.toLowerCase()}/${d1}/${d2}/?adultsv2=${adults}`;
+  function skyscannerLink() {
+    return 'https://www.skyscanner.fr';
   }
 
   function renderResults(data, params) {
@@ -1141,8 +1151,8 @@
 
       ${(function() {
         const t = data.transport || {};
-        const gfLink = googleFlightsLink(depart, destination, t.iata_from, t.iata_to);
-        const skyLink = skyscannerLink(t.iata_from, t.iata_to, params.dateDebut, params.dateFin, params.voyageurs);
+        const gfLink = googleFlightsLink();
+        const skyLink = skyscannerLink();
         let html = '';
 
         // Bandeau vols
@@ -1166,7 +1176,7 @@
             <div>
               <strong>Trajet voiture vers ${t.depart_airport}</strong><br>
               <span style="font-size:13px;">${t.depart_drive_km} km · ${t.depart_drive_duration} · Carburant ≈ ${t.depart_fuel_estimate || '—'} · Péages ≈ ${t.depart_tolls_estimate || '—'}</span>
-              <br><a href="https://www.viamichelin.fr/web/Itineraires?from=${encodeURIComponent(depart||'')}&to=${encodeURIComponent(t.depart_airport||'')}" target="_blank" style="color:#92400e;font-weight:700;font-size:13px;">Calculer l'itinéraire ViaMichelin →</a>
+              <br><a href="https://www.viamichelin.fr" target="_blank" style="color:#92400e;font-weight:700;font-size:13px;">Calculer l'itinéraire ViaMichelin →</a>
             </div>
           </div>`;
         }
@@ -1211,7 +1221,7 @@
                     ${act.duree ? `<span class="activity-tag">⏱️ ${act.duree}</span>` : ''}
                     ${act.prix_estime ? `<span class="activity-tag">💶 ${act.prix_estime}</span>` : ''}
                   </div>
-                  ${act.lien_booking ? `<a href="${act.lien_booking}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>` : ''}
+                  <a href="${gygLink(act.activite, destination)}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>
                 </div>
               </div>
             `).join('')}
@@ -1234,9 +1244,7 @@
           return `
           <div class="hotel-card">
             <div class="hotel-thumb" style="background:${hGrad};">
-              ${h.photo_url ? `<img src="${h.photo_url}" alt="${h.nom}" />` : ''}
-              <span class="hotel-thumb-icon">${hEmoji}</span>
-              <span class="hotel-thumb-label">${h.etoiles || 3}★</span>
+              ${h.photo_url ? `<img src="${h.photo_url}" alt="${h.nom}" />` : `<span class="hotel-thumb-icon">${hEmoji}</span><span class="hotel-thumb-label">${h.etoiles || 3}★</span>`}
             </div>
             <div class="hotel-body">
               <div class="hotel-name">${h.nom}</div>
@@ -1287,9 +1295,7 @@
             return `
             <div class="resto-card">
               <div class="resto-thumb" style="background:${rGrad};">
-                ${r.photo_url ? `<img src="${r.photo_url}" alt="${r.nom}" />` : ''}
-                <span class="resto-thumb-icon">${rEmoji}</span>
-                <span class="resto-thumb-label">${r.type || 'Restaurant'}</span>
+                ${r.photo_url ? `<img src="${r.photo_url}" alt="${r.nom}" />` : `<span class="resto-thumb-icon">${rEmoji}</span><span class="resto-thumb-label">${r.type || 'Restaurant'}</span>`}
               </div>
               <div class="resto-body">
                 <div class="resto-name">${r.nom}</div>
