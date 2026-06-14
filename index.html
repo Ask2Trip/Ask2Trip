@@ -1011,8 +1011,8 @@
 
     const steps = ['step1','step2','step3','step4','step5','step6'];
     const fill = document.getElementById('loadingProgressFill');
-    // Spread over ~24s so there's always something moving
-    const durations = [0, 4000, 8000, 12000, 17000, 22000];
+    // Spread over ~45s — Gemini prend du temps, on garde l'animation fluide
+    const durations = [0, 7000, 14000, 21000, 30000, 40000];
     let currentActive = -1;
 
     steps.forEach(id => {
