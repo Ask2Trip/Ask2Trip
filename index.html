@@ -926,6 +926,93 @@
       font-weight: 600;
     }
 
+    /* PAYWALL MODAL */
+    .paywall-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(15,23,42,0.75);
+      backdrop-filter: blur(6px);
+      align-items: center;
+      justify-content: center;
+    }
+    .paywall-overlay.show { display: flex; }
+    .paywall-box {
+      background: white;
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 480px;
+      width: 92%;
+      position: relative;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+      animation: popIn 0.25s ease;
+    }
+    @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .paywall-close {
+      position: absolute;
+      top: 14px; right: 14px;
+      border: none;
+      background: var(--bg);
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .paywall-plans {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 24px 0;
+    }
+    .plan-free {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .plan-pro {
+      background: linear-gradient(135deg, #e0e7ff, #ddd6fe);
+      border: 2px solid var(--primary);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      color: var(--primary-dark);
+    }
+    .plan-title { font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+    .plan-feature { display: flex; flex-direction: column; gap: 5px; }
+    .btn-gumroad {
+      display: block;
+      text-align: center;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+    .btn-gumroad:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.4); }
+
+    /* COUNTER BADGE */
+    .gen-counter {
+      text-align: center;
+      font-size: 13px;
+      padding: 8px 16px;
+      background: var(--bg);
+      border-radius: 100px;
+      margin-top: 16px;
+      color: var(--text-muted);
+      cursor: default;
+    }
+    .gen-counter.warning { color: #dc2626; background: #fef2f2; }
+    .gen-counter.pro { color: var(--primary-dark); background: var(--primary-light); }
+
     /* FOOTER */
     footer {
       text-align: center;
@@ -1029,6 +1116,7 @@
     <button class="btn-generate" id="btnGenerate" onclick="generateTrip()">
       ✨ Générer mon itinéraire gratuit
     </button>
+    <div class="gen-counter" id="genCounter"></div>
   </div>
 </section>
 
@@ -1066,6 +1154,52 @@
 <!-- RESULTS -->
 <div class="results" id="results">
   <div id="resultsContent"></div>
+</div>
+
+<!-- PAYWALL MODAL -->
+<div class="paywall-overlay" id="paywallModal">
+  <div class="paywall-box">
+    <button class="paywall-close" onclick="closePaywall()">✕</button>
+    <div style="text-align:center;">
+      <div style="font-size:52px;margin-bottom:12px;">✨</div>
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:8px;">Passer à Ask2Trip Pro</h2>
+      <p id="paywallReason" style="color:var(--text-muted);font-size:14px;line-height:1.5;">Tu as utilisé tes 3 générations gratuites ce mois-ci.</p>
+    </div>
+    <div class="paywall-plans">
+      <div class="plan-free">
+        <div class="plan-title" style="color:var(--text-muted);">Gratuit</div>
+        <div class="plan-feature">
+          <span>3 générations/mois</span>
+          <span>Jusqu'à 7 jours</span>
+        </div>
+      </div>
+      <div class="plan-pro">
+        <div class="plan-title" style="color:var(--primary);">✨ Pro</div>
+        <div class="plan-feature">
+          <span>✅ Générations illimitées</span>
+          <span>✅ Jusqu'à 21 jours</span>
+          <span>✅ Export PDF (bientôt)</span>
+        </div>
+      </div>
+    </div>
+    <a id="gumroadBtn" href="https://fleurish31.gumroad.com/l/ask2trip-pro" target="_blank" class="btn-gumroad">
+      Obtenir Pro — 9,99€ à vie →
+    </a>
+    <div style="text-align:center;">
+      <button onclick="showUnlockForm()" style="border:none;background:none;color:var(--text-muted);font-size:13px;cursor:pointer;text-decoration:underline;">Déjà acheté ? Entrer mon code →</button>
+    </div>
+    <div id="unlockForm" style="display:none;margin-top:16px;">
+      <div style="display:flex;gap:8px;">
+        <input id="licenseInput" type="text" placeholder="Colle ta clé de licence ici…"
+          style="flex:1;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-family:Inter,sans-serif;outline:none;" />
+        <button onclick="verifyLicense()"
+          style="padding:10px 18px;background:var(--primary);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+          Activer
+        </button>
+      </div>
+      <div id="licenseMsg" style="font-size:13px;margin-top:8px;min-height:18px;"></div>
+    </div>
+  </div>
 </div>
 
 <!-- FOOTER -->
@@ -1164,6 +1298,17 @@
       return;
     }
 
+    // Vérifications Plan Pro
+    const nbJoursCheck = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
+    if (!isPro() && nbJoursCheck > MAX_DAYS_FREE) {
+      showPaywall(`Les itinéraires de plus de ${MAX_DAYS_FREE} jours sont réservés aux membres Pro.`);
+      return;
+    }
+    if (remaining() <= 0) {
+      showPaywall('Tu as utilisé tes 3 générations gratuites ce mois-ci.');
+      return;
+    }
+
     // Affichage loading
     document.getElementById('loading').classList.add('show');
     document.getElementById('results').classList.remove('show');
@@ -1188,6 +1333,7 @@
       const data = await response.json();
 
       stopLoadingAnimation();
+      incrementUsage();
       await new Promise(r => setTimeout(r, 400));
       document.getElementById('loading').classList.remove('show');
       renderResults(data, { destination, depart, dateDebut, dateFin, budget, voyageurs });
@@ -1534,6 +1680,101 @@
       `).join('');
     }
   }
+
+  // ---- SYSTÈME PRO ----
+  const FREE_LIMIT = 3;
+  const MAX_DAYS_FREE = 7;
+
+  function getUsage() {
+    try {
+      const s = JSON.parse(localStorage.getItem('a2t_usage') || '{}');
+      const month = new Date().toISOString().slice(0, 7);
+      return s.month === month ? s : { month, count: 0 };
+    } catch { return { month: new Date().toISOString().slice(0, 7), count: 0 }; }
+  }
+
+  function incrementUsage() {
+    const u = getUsage();
+    u.count = (u.count || 0) + 1;
+    localStorage.setItem('a2t_usage', JSON.stringify(u));
+    updateCounter();
+  }
+
+  function isPro() {
+    return localStorage.getItem('a2t_pro') === 'UNLOCKED';
+  }
+
+  function remaining() {
+    return isPro() ? Infinity : Math.max(0, FREE_LIMIT - getUsage().count);
+  }
+
+  function updateCounter() {
+    const el = document.getElementById('genCounter');
+    if (!el) return;
+    if (isPro()) {
+      el.textContent = '✨ Pro actif — Générations illimitées';
+      el.className = 'gen-counter pro';
+    } else {
+      const r = remaining();
+      el.className = r === 0 ? 'gen-counter warning' : 'gen-counter';
+      el.innerHTML = r > 0
+        ? `🔓 ${r}/${FREE_LIMIT} génération${r > 1 ? 's' : ''} gratuite${r > 1 ? 's' : ''} restante${r > 1 ? 's' : ''} ce mois-ci`
+        : '⚠️ Limite atteinte · <strong>Passer à Pro pour continuer</strong>';
+    }
+  }
+
+  function showPaywall(reason) {
+    const el = document.getElementById('paywallReason');
+    if (el) el.textContent = reason || 'Tu as utilisé tes 3 générations gratuites ce mois-ci.';
+    document.getElementById('unlockForm').style.display = 'none';
+    document.getElementById('licenseMsg').textContent = '';
+    document.getElementById('paywallModal').classList.add('show');
+  }
+
+  function closePaywall() {
+    document.getElementById('paywallModal').classList.remove('show');
+  }
+
+  function showUnlockForm() {
+    document.getElementById('unlockForm').style.display = 'block';
+    document.getElementById('licenseInput').focus();
+  }
+
+  async function verifyLicense() {
+    const key = document.getElementById('licenseInput').value.trim();
+    const msg = document.getElementById('licenseMsg');
+    if (!key) { msg.style.color = '#dc2626'; msg.textContent = 'Entre ta clé de licence.'; return; }
+
+    msg.style.color = 'var(--text-muted)';
+    msg.textContent = 'Vérification en cours…';
+
+    try {
+      const res = await fetch('/api/verify-license', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ license_key: key })
+      });
+      const data = await res.json();
+
+      if (data.valid) {
+        localStorage.setItem('a2t_pro', 'UNLOCKED');
+        localStorage.setItem('a2t_license', key);
+        msg.style.color = '#10b981';
+        msg.textContent = '✅ Pro activé ! Générations illimitées débloquées.';
+        updateCounter();
+        setTimeout(() => closePaywall(), 1800);
+      } else {
+        msg.style.color = '#dc2626';
+        msg.textContent = '❌ Clé invalide. Vérifie ton email Gumroad.';
+      }
+    } catch {
+      msg.style.color = '#dc2626';
+      msg.textContent = '❌ Erreur réseau, réessaie.';
+    }
+  }
+
+  // Init counter on page load
+  updateCounter();
 
   function switchTab(tab, btn) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
