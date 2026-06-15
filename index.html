@@ -1090,6 +1090,13 @@
     <div class="stat"><div class="stat-num">2 min</div><div class="stat-label">Génération</div></div>
     <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Destinations</div></div>
   </div>
+  <div style="margin-top:28px;position:relative;">
+    <button onclick="showPaywall('Débloquez les générations illimitées et les itinéraires jusqu\'à 21 jours.')"
+      style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:10px 22px;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px);transition:all 0.2s;"
+      onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+      ✨ Passer à Pro — 9,99€ à vie
+    </button>
+  </div>
 </section>
 
 <!-- FORM -->
@@ -1925,8 +1932,10 @@
     });
 
     // Couches par jour : markers + polyligne
-    const dayGroups = []; // [{ layerGroup, polyline, color, coords }]
+    const dayGroups = [];
     const allCoords = [];
+    const totalDays = (data.itineraire || []).length;
+    const visibleDays = isPro() ? totalDays : Math.ceil(totalDays / 2);
 
     (data.itineraire || []).forEach((day, idx) => {
       const color = DAY_COLORS[idx % DAY_COLORS.length];
@@ -1957,11 +1966,11 @@
         }).addTo(group);
       }
 
-      dayGroups.push({ group, poly, color, coords: dayCoords, day });
+      dayGroups.push({ group, poly, color, coords: dayCoords, day, locked: idx >= visibleDays });
     });
 
-    // Afficher tous les jours par défaut
-    dayGroups.forEach(d => d.group.addTo(map));
+    // Afficher uniquement les jours visibles (non-Pro = moitié)
+    dayGroups.forEach(d => { if (!d.locked) d.group.addTo(map); });
 
     // Fit bounds sur toutes les activités + hôtels + restos
     const hotelCoords = (data.hebergements||[]).filter(h=>h.lat&&h.lng).map(h=>[+h.lat,+h.lng]);
@@ -2008,16 +2017,36 @@
     }
 
     if (filterEl) {
-      const buttons = [{ label: 'Tous les jours', day: 'all', color: '#334155' }];
+      const buttons = [{ label: 'Tous les jours', day: 'all', color: '#334155', locked: false }];
       dayGroups.forEach((d, i) => {
-        buttons.push({ label: `Jour ${d.day.jour}`, day: i, color: d.color });
+        buttons.push({ label: `Jour ${d.day.jour}`, day: i, color: d.color, locked: d.locked });
       });
 
-      filterEl.innerHTML = buttons.map(b => `
-        <button class="map-day-btn active" data-day="${b.day}"
-          style="border-color:${b.color};color:${b.color};"
-          onclick="window._mapFilterClick(this)">${b.label}</button>
-      `).join('');
+      filterEl.innerHTML = buttons.map(b => b.locked
+        ? `<button class="map-day-btn" data-day="${b.day}"
+            style="border-color:#cbd5e1;color:#94a3b8;cursor:pointer;opacity:0.6;"
+            onclick="showPaywall('Les jours suivants sont réservés aux membres Pro.')">🔒 ${b.label}</button>`
+        : `<button class="map-day-btn active" data-day="${b.day}"
+            style="border-color:${b.color};color:${b.color};"
+            onclick="window._mapFilterClick(this)">${b.label}</button>`
+      ).join('');
+
+      // Overlay Pro sur la carte si non-Pro et jours bloqués
+      if (!isPro() && visibleDays < totalDays) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:42%;background:linear-gradient(to bottom, transparent, rgba(15,23,42,0.92));display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:24px;z-index:500;pointer-events:auto;`;
+        overlay.innerHTML = `
+          <div style="text-align:center;color:white;">
+            <div style="font-size:15px;font-weight:700;margin-bottom:8px;">🔒 ${totalDays - visibleDays} jour${totalDays - visibleDays > 1 ? 's' : ''} masqué${totalDays - visibleDays > 1 ? 's' : ''}</div>
+            <div style="font-size:13px;opacity:0.75;margin-bottom:14px;">La carte complète est réservée aux membres Pro</div>
+            <button onclick="showPaywall('Débloquez la carte complète et toutes les fonctionnalités Pro.')"
+              style="padding:10px 20px;background:#6366f1;color:white;border:none;border-radius:100px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+              ✨ Débloquer Pro — 9,99€
+            </button>
+          </div>`;
+        mapEl.style.position = 'relative';
+        mapEl.appendChild(overlay);
+      }
 
       window._mapFilterClick = function(btn) {
         const val = btn.dataset.day;
