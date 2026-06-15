@@ -36,6 +36,7 @@ IMPORTANT TRANSPORT : Analyse si la ville de départ (${depart || 'France'}) a u
 
 INSTRUCTIONS :
 - Génère EXACTEMENT ${nbJours} jours dans l'itinéraire
+- Pour les coordonnées GPS (lat/lng) : utilise des coordonnées TERRESTRES précises (jamais dans la mer, jamais dans l'eau). Si tu n'es pas sûr de la position exacte d'un lieu, utilise le centre-ville ou une place principale de la destination.
 - Propose des activités variées et authentiques, pas seulement les sites touristiques classiques
 - Les horaires doivent être réalistes (3-4 activités max par jour)
 - Adapte les recommandations au budget disponible

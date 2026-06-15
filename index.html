@@ -1203,6 +1203,15 @@
     }
   }
 
+  function isBookableActivity(name) {
+    const skip = ['vol ', 'vols ', 'flight', 'transfert', 'trajet', 'transport', 'check-in', 'check in',
+      'check-out', 'check out', 'installation', 'arrivée', 'départ', 'retour à', 'prise en charge',
+      'navette', 'taxi', 'ferry', 'train ', 'bus ', 'aéroport', 'embarquement', 'débarquement',
+      'hébergement', 'hôtel', 'repos', 'temps libre', 'nuit à', 'soirée libre', 'fin du voyage'];
+    const n = (name || '').toLowerCase();
+    return !skip.some(kw => n.includes(kw));
+  }
+
   function starsHTML(n) {
     return '⭐'.repeat(Math.min(5, Math.max(1, n)));
   }
@@ -1315,7 +1324,7 @@
                     ${act.duree ? `<span class="activity-tag">⏱️ ${act.duree}</span>` : ''}
                     ${act.prix_estime ? `<span class="activity-tag">💶 ${act.prix_estime}</span>` : ''}
                   </div>
-                  <a href="${gygLink(act.activite, destination)}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>
+                  ${isBookableActivity(act.activite) ? `<a href="${gygLink(act.activite, destination)}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>` : ''}
                 </div>
               </div>
             `).join('')}
