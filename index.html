@@ -926,6 +926,51 @@
       font-weight: 600;
     }
 
+    /* GENERATION BANNER */
+    .gen-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      flex-wrap: wrap;
+    }
+    .gen-banner.free {
+      background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+      border: 1px solid #7dd3fc;
+      color: #0369a1;
+    }
+    .gen-banner.warning {
+      background: linear-gradient(135deg, #fefce8, #fef9c3);
+      border: 1px solid #fde047;
+      color: #854d0e;
+    }
+    .gen-banner.last {
+      background: linear-gradient(135deg, #fff1f2, #ffe4e6);
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+    }
+    .gen-banner.pro-active {
+      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+      border: 1px solid #86efac;
+      color: #166534;
+    }
+    .btn-upgrade-small {
+      padding: 7px 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: 'Inter', sans-serif;
+    }
+
     /* PAYWALL MODAL */
     .paywall-overlay {
       display: none;
@@ -1153,6 +1198,7 @@
 
 <!-- RESULTS -->
 <div class="results" id="results">
+  <div id="genBanner"></div>
   <div id="resultsContent"></div>
 </div>
 
@@ -1337,6 +1383,7 @@
       await new Promise(r => setTimeout(r, 400));
       document.getElementById('loading').classList.remove('show');
       renderResults(data, { destination, depart, dateDebut, dateFin, budget, voyageurs });
+      showGenBanner();
       document.getElementById('results').classList.add('show');
       document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
@@ -1770,6 +1817,32 @@
     } catch {
       msg.style.color = '#dc2626';
       msg.textContent = '❌ Erreur réseau, réessaie.';
+    }
+  }
+
+  function showGenBanner() {
+    const el = document.getElementById('genBanner');
+    if (!el) return;
+    if (isPro()) {
+      el.innerHTML = `<div class="gen-banner pro-active">✨ <strong>Ask2Trip Pro</strong> — Générations illimitées activées.</div>`;
+      return;
+    }
+    const r = remaining();
+    if (r === 0) {
+      el.innerHTML = `<div class="gen-banner last">
+        <span>⚠️ C'était ta <strong>dernière génération gratuite</strong> ce mois-ci.</span>
+        <button class="btn-upgrade-small" onclick="showPaywall('Tu as utilisé tes 3 générations gratuites ce mois-ci.')">Passer à Pro →</button>
+      </div>`;
+    } else if (r === 1) {
+      el.innerHTML = `<div class="gen-banner warning">
+        <span>⏳ Il te reste <strong>1 génération gratuite</strong> ce mois-ci.</span>
+        <button class="btn-upgrade-small" onclick="showPaywall()">Passer à Pro →</button>
+      </div>`;
+    } else {
+      el.innerHTML = `<div class="gen-banner free">
+        <span>🔓 Il te reste <strong>${r} générations gratuites</strong> ce mois-ci (${FREE_LIMIT - r}/${FREE_LIMIT} utilisées).</span>
+        <button class="btn-upgrade-small" onclick="showPaywall()">Passer à Pro →</button>
+      </div>`;
     }
   }
 
