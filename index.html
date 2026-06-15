@@ -1362,6 +1362,10 @@
       return;
     }
 
+    // Effacer erreur précédente
+    const prevErr = document.getElementById('errorBox');
+    if (prevErr) prevErr.style.display = 'none';
+
     // Affichage loading
     document.getElementById('loading').classList.add('show');
     document.getElementById('results').classList.remove('show');
@@ -1395,7 +1399,18 @@
       document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
       document.getElementById('loading').classList.remove('show');
-      alert('Erreur : ' + (err.message || 'Inconnue') + '\n\nVérifiez la console (F12) pour plus de détails.');
+      const msg = err.message || 'Erreur inconnue';
+      // Affichage propre dans la page au lieu d'un alert()
+      let errBox = document.getElementById('errorBox');
+      if (!errBox) {
+        errBox = document.createElement('div');
+        errBox.id = 'errorBox';
+        errBox.style.cssText = 'background:#fff1f2;border:1.5px solid #fca5a5;border-radius:12px;padding:16px 20px;margin:16px auto;max-width:600px;text-align:center;color:#dc2626;font-size:15px;';
+        document.getElementById('formCard').after(errBox);
+      }
+      errBox.innerHTML = `⚠️ ${msg}`;
+      errBox.style.display = 'block';
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
       console.error(err);
     } finally {
       document.getElementById('btnGenerate').disabled = false;

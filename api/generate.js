@@ -132,11 +132,15 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+    const MODELS = [
+      { model: 'gemini-2.5-flash', version: 'v1beta' },
+      { model: 'gemini-2.0-flash', version: 'v1beta' },
+      { model: 'gemini-1.5-flash', version: 'v1' }
+    ];
 
-    const callGemini = async (model) => {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
+    const callGemini = async ({ model, version }) => {
+      const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
+      const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -144,21 +148,25 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
           generationConfig: { temperature: 0.7, maxOutputTokens: 65536 }
         })
       });
-      return res;
+      return r;
     };
 
     let geminiRes = await callGemini(MODELS[0]);
 
-    // Si surchargé (503) ou rate limit (429), retry sur le modèle de secours
-    if (geminiRes.status === 503 || geminiRes.status === 429) {
-      console.log(`${MODELS[0]} surchargé (${geminiRes.status}), fallback sur ${MODELS[1]}`);
+    // Fallback sur les modèles suivants si surchargé, quota dépassé ou erreur
+    for (let i = 1; i < MODELS.length && !geminiRes.ok && [429, 500, 503].includes(geminiRes.status); i++) {
+      console.log(`${MODELS[i-1].model} indisponible (${geminiRes.status}), fallback sur ${MODELS[i].model}`);
       await new Promise(r => setTimeout(r, 1000));
-      geminiRes = await callGemini(MODELS[1]);
+      geminiRes = await callGemini(MODELS[i]);
     }
 
     if (!geminiRes.ok) {
-      const errData = await geminiRes.json();
-      throw new Error(errData.error?.message || `Gemini error ${geminiRes.status}`);
+      const errData = await geminiRes.json().catch(() => ({}));
+      const msg = errData.error?.message || '';
+      if (msg.toLowerCase().includes('quota') || geminiRes.status === 429) {
+        throw new Error('Le service IA est temporairement surchargé. Réessaie dans quelques minutes ⏳');
+      }
+      throw new Error(msg || `Erreur IA (${geminiRes.status})`);
     }
 
     const geminiData = await geminiRes.json();
