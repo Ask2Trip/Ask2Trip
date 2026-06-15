@@ -213,15 +213,14 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       return getPixabayPhoto(fallbackQuery, category);
     };
 
-    const [restoPhotos, hotelPhotos] = await Promise.all([
-      // category=food force Pixabay à chercher dans les photos de nourriture uniquement
-      Promise.all((data.restaurants || []).map(r => getPhoto(r.nom, destination, r.photo_query || r.type + ' food dish', 'food'))),
-      // category=travel pour les hôtels
-      Promise.all((data.hebergements || []).map(h => getPhoto(h.nom, destination, h.photo_query || 'hotel room interior', 'travel')))
-    ]);
+    // Photos restaurants uniquement (Pixabay category=food = pertinent)
+    // Hôtels : pas de photo Pixabay (jamais le bon hôtel) → dégradé coloré affiché à la place
+    const restoPhotos = await Promise.all(
+      (data.restaurants || []).map(r => getPixabayPhoto(r.photo_query || r.type + ' food dish', 'food'))
+    );
 
     if (data.restaurants) data.restaurants = data.restaurants.map((r, i) => ({ ...r, photo_url: restoPhotos[i] }));
-    if (data.hebergements) data.hebergements = data.hebergements.map((h, i) => ({ ...h, photo_url: hotelPhotos[i] }));
+    if (data.hebergements) data.hebergements = data.hebergements.map(h => ({ ...h, photo_url: null }));
 
     return res.status(200).json(data);
 

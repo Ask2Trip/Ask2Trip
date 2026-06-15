@@ -1216,9 +1216,10 @@
     return '⭐'.repeat(Math.min(5, Math.max(1, n)));
   }
 
-  function bookingLink(destination) {
-    // ⚠️ Remplacer YOUR_AID par votre ID affilié Booking.com
-    return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}&lang=fr&aid=YOUR_AID`;
+  function bookingLink(hotelName, destination) {
+    const q = encodeURIComponent((hotelName || '') + ' ' + (destination || ''));
+    // TODO: ajouter &aid=VOTRE_AID une fois approuvé sur CJ Affiliate
+    return `https://www.booking.com/search.html?ss=${q}&lang=fr`;
   }
 
   function gygLink(activityName, destination) {
@@ -1374,7 +1375,7 @@
               </div>
               <div class="hotel-desc">${h.description || ''}</div>
               <div class="hotel-price">${h.prix_nuit || '—'} <span>/ nuit</span></div>
-              <a href="${bookingLink(h.nom + ' ' + destination)}" target="_blank" class="btn-book">🏨 Voir sur Booking.com →</a>
+              <a href="${bookingLink(h.nom, destination)}" target="_blank" class="btn-book">🏨 Voir sur Booking.com →</a>
             </div>
           </div>
         `}).join('')}
