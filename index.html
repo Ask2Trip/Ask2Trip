@@ -1821,9 +1821,9 @@
         msg.style.color = '#dc2626';
         msg.textContent = '❌ Clé invalide. Vérifie ton email Gumroad.';
       }
-    } catch {
+    } catch (e) {
       msg.style.color = '#dc2626';
-      msg.textContent = '❌ Erreur réseau, réessaie.';
+      msg.textContent = '❌ Erreur : ' + (e.message || 'réessaie.');
     }
   }
 
