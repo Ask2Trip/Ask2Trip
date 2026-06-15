@@ -66,7 +66,9 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
           "description": "Description détaillée et pratique (2-3 phrases)",
           "duree": "2h",
           "prix_estime": "15€/pers",
-          "lien_booking": "https://www.getyourguide.fr/destination/activities/?partner_id=YOUR_PARTNER_ID"
+          "lien_booking": "https://www.getyourguide.fr/destination/activities/?partner_id=YOUR_PARTNER_ID",
+          "lat": 35.6762,
+          "lng": 139.6503
         }
       ]
     }
@@ -81,7 +83,9 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       "description": "Description attrayante",
       "photo_query": "2-3 mots anglais décrivant l'hôtel ex: luxury hotel room",
       "badge": "budget",
-      "points_forts": ["Avantage 1", "Avantage 2"]
+      "points_forts": ["Avantage 1", "Avantage 2"],
+      "lat": 35.6762,
+      "lng": 139.6503
     }
   ],
   "restaurants": [
@@ -93,7 +97,9 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       "quartier": "Quartier",
       "description": "Pourquoi ce restaurant est incontournable (2 phrases max)",
       "photo_query": "2-3 mots anglais décrivant le plat ou la cuisine ex: sushi japanese food",
-      "badge": null
+      "badge": null,
+      "lat": 35.6762,
+      "lng": 139.6503
     }
   ],
   "transport": {
