@@ -1836,7 +1836,8 @@
         setTimeout(() => closePaywall(), 1800);
       } else {
         msg.style.color = '#dc2626';
-        msg.textContent = '❌ Clé invalide. Vérifie ton email Gumroad.';
+        // Afficher le message exact du backend pour débuguer
+        msg.textContent = '❌ ' + (data.error || 'Clé invalide');
       }
     } catch (e) {
       msg.style.color = '#dc2626';
