@@ -131,7 +131,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    const MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+    const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
     const callGemini = async (model) => {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
