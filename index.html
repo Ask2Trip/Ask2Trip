@@ -1535,8 +1535,11 @@
     }
     if (tab === 'carte') {
       setTimeout(() => {
-        if (window._tripMap) window._tripMap.invalidateSize();
-      }, 50);
+        if (window._tripMap) {
+          window._tripMap.invalidateSize();
+          if (window._tripMapBounds) window._tripMap.fitBounds(window._tripMapBounds, { padding: [40, 40] });
+        }
+      }, 80);
     }
   }
 
@@ -1641,7 +1644,9 @@
     const restoCoords = (data.restaurants||[]).filter(r=>r.lat&&r.lng).map(r=>[+r.lat,+r.lng]);
     const allBoundsCoords = [...allCoords, ...hotelCoords, ...restoCoords];
     if (allBoundsCoords.length > 0) {
-      map.fitBounds(L.latLngBounds(allBoundsCoords), { padding: [40, 40] });
+      const bounds = L.latLngBounds(allBoundsCoords);
+      window._tripMapBounds = bounds;
+      map.fitBounds(bounds, { padding: [40, 40] });
     }
 
     // ---- Boutons de filtre ----
