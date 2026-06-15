@@ -19,13 +19,17 @@ module.exports = async function handler(req, res) {
     });
 
     const text = await gumRes.text();
+    console.log('Gumroad status:', gumRes.status, '| permalink used:', permalink, '| response:', text.slice(0, 300));
     let data;
-    try { data = JSON.parse(text); } catch { data = {}; }
+    try { data = JSON.parse(text); } catch (e) {
+      return res.status(200).json({ valid: false, error: '[Parse error] ' + text.slice(0, 150) });
+    }
 
     if (data.success) {
       return res.status(200).json({ valid: true });
     } else {
-      return res.status(200).json({ valid: false, error: data.message || 'Clé invalide' });
+      // Message Gumroad exact pour debug
+      return res.status(200).json({ valid: false, error: data.message || ('[No message] ' + JSON.stringify(data).slice(0, 100)) });
     }
   } catch (err) {
     console.error('License verify error:', err.message);
