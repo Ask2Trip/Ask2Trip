@@ -858,6 +858,29 @@
     .tool-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
     .tool-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 
+    /* MAP DAY FILTER */
+    .map-day-filter {
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .map-day-btn {
+      padding: 6px 14px;
+      border-radius: 100px;
+      border: 2px solid;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.18s;
+      background: white;
+    }
+    .map-day-btn.active { color: white; }
+    .map-day-btn:hover { opacity: 0.85; }
+
     /* MAP */
     .map-wrap {
       background: white;
@@ -1303,6 +1326,7 @@
       <!-- CARTE -->
       <div class="tab-content" id="tab-carte">
         <div class="map-wrap">
+          <div id="mapDayFilter" class="map-day-filter"></div>
           <div id="tripMap"></div>
           <div class="map-legend" id="mapLegend"></div>
         </div>
@@ -1521,63 +1545,25 @@
   function buildMap(data) {
     const mapEl = document.getElementById('tripMap');
     const legendEl = document.getElementById('mapLegend');
+    const filterEl = document.getElementById('mapDayFilter');
     if (!mapEl) return;
 
-    // Destroy previous instance if any
     if (_mapInstance) { _mapInstance.remove(); _mapInstance = null; }
 
     const DAY_COLORS = ['#6366f1','#ef4444','#10b981','#f59e0b','#0ea5e9','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#84cc16','#a855f7'];
     const HOTEL_COLOR = '#1d4ed8';
     const RESTO_COLOR = '#b45309';
 
-    const allPoints = [];
-    const dayLegend = [];
-
-    // Activités par jour
-    (data.itineraire || []).forEach((day, idx) => {
-      const color = DAY_COLORS[idx % DAY_COLORS.length];
-      const label = idx + 1;
-      dayLegend.push({ color, label: `Jour ${label} — ${day.titre || ''}` });
-      (day.activites || []).forEach(act => {
-        if (act.lat && act.lng) {
-          allPoints.push({
-            lat: +act.lat, lng: +act.lng,
-            color, text: String(label),
-            popup: `<div style="min-width:180px"><strong>${act.activite}</strong><br><small style="color:#64748b">${day.date || ''} · ${act.heure || ''}</small><br><span style="font-size:12px;line-height:1.4;display:block;margin-top:4px">${act.description || ''}</span></div>`
-          });
-        }
-      });
-    });
-
-    // Hébergements
-    (data.hebergements || []).forEach(h => {
-      if (h.lat && h.lng) {
-        allPoints.push({
-          lat: +h.lat, lng: +h.lng,
-          color: HOTEL_COLOR, text: '🏨',
-          popup: `<div style="min-width:160px"><strong>${h.nom}</strong><br><small style="color:#64748b">${h.quartier || ''} · ${h.prix_nuit || ''}/nuit</small><br><span style="font-size:12px;display:block;margin-top:4px">${h.description || ''}</span></div>`
-        });
-      }
-    });
-
-    // Restaurants
-    (data.restaurants || []).forEach(r => {
-      if (r.lat && r.lng) {
-        allPoints.push({
-          lat: +r.lat, lng: +r.lng,
-          color: RESTO_COLOR, text: '🍽',
-          popup: `<div style="min-width:160px"><strong>${r.nom}</strong><br><small style="color:#64748b">${r.type || ''} · ${r.prix || ''} · ${r.quartier || ''}</small><br><span style="font-size:12px;display:block;margin-top:4px">${r.description || ''}</span></div>`
-        });
-      }
-    });
-
-    if (allPoints.length === 0) {
+    // Vérifier qu'on a au moins quelques coordonnées
+    let hasCoords = false;
+    (data.itineraire || []).forEach(day => (day.activites || []).forEach(a => { if (a.lat && a.lng) hasCoords = true; }));
+    if (!hasCoords) {
       mapEl.style.height = 'auto';
       mapEl.innerHTML = '<p style="text-align:center;padding:48px 24px;color:var(--text-muted);">📍 Coordonnées indisponibles pour cette génération.</p>';
+      if (filterEl) filterEl.innerHTML = '';
       return;
     }
 
-    // Init Leaflet
     const map = L.map('tripMap', { zoomControl: true });
     _mapInstance = map;
     window._tripMap = map;
@@ -1587,44 +1573,146 @@
       maxZoom: 18
     }).addTo(map);
 
-    allPoints.forEach(p => {
-      const isEmoji = /\p{Emoji}/u.test(p.text);
-      const iconHtml = `<div style="
-        background:${p.color};
-        width:30px;height:30px;
-        border-radius:50%;
-        border:2.5px solid white;
-        box-shadow:0 2px 8px rgba(0,0,0,0.25);
-        display:flex;align-items:center;justify-content:center;
-        font-size:${isEmoji ? '14px' : '11px'};
-        font-weight:800;
-        color:white;
-        font-family:Inter,sans-serif;
-      ">${p.text}</div>`;
+    // Couche permanente : hôtels + restaurants
+    const permanentLayer = L.layerGroup().addTo(map);
+    const makeIcon = (text, color, size) => {
+      const isEmoji = /\p{Emoji}/u.test(text);
+      return L.divIcon({
+        html: `<div style="background:${color};width:${size}px;height:${size}px;border-radius:50%;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:${isEmoji?'13px':'11px'};font-weight:800;color:white;font-family:Inter,sans-serif;">${text}</div>`,
+        iconSize: [size,size], iconAnchor: [size/2,size/2], className: ''
+      });
+    };
 
-      const icon = L.divIcon({ html: iconHtml, iconSize: [30,30], iconAnchor: [15,15], className: '' });
-      L.marker([p.lat, p.lng], { icon }).addTo(map).bindPopup(p.popup, { maxWidth: 240 });
+    (data.hebergements || []).forEach(h => {
+      if (!h.lat || !h.lng) return;
+      L.marker([+h.lat, +h.lng], { icon: makeIcon('🏨', HOTEL_COLOR, 30) })
+        .addTo(permanentLayer)
+        .bindPopup(`<div style="min-width:160px"><strong>${h.nom}</strong><br><small style="color:#64748b">${h.quartier||''} · ${h.prix_nuit||''}/nuit</small><br><span style="font-size:12px;display:block;margin-top:4px">${h.description||''}</span></div>`, { maxWidth: 220 });
     });
 
-    // Fit all points
-    const bounds = L.latLngBounds(allPoints.map(p => [p.lat, p.lng]));
-    map.fitBounds(bounds, { padding: [40, 40] });
+    (data.restaurants || []).forEach(r => {
+      if (!r.lat || !r.lng) return;
+      L.marker([+r.lat, +r.lng], { icon: makeIcon('🍽', RESTO_COLOR, 28) })
+        .addTo(permanentLayer)
+        .bindPopup(`<div style="min-width:160px"><strong>${r.nom}</strong><br><small style="color:#64748b">${r.type||''} · ${r.prix||''} · ${r.quartier||''}</small><br><span style="font-size:12px;display:block;margin-top:4px">${r.description||''}</span></div>`, { maxWidth: 220 });
+    });
 
-    // Build legend
+    // Couches par jour : markers + polyligne
+    const dayGroups = []; // [{ layerGroup, polyline, color, coords }]
+    const allCoords = [];
+
+    (data.itineraire || []).forEach((day, idx) => {
+      const color = DAY_COLORS[idx % DAY_COLORS.length];
+      const group = L.layerGroup();
+      const dayCoords = [];
+
+      (day.activites || []).forEach((act, aIdx) => {
+        if (!act.lat || !act.lng) return;
+        const coords = [+act.lat, +act.lng];
+        dayCoords.push(coords);
+        allCoords.push(coords);
+
+        // Marker avec numéro de séquence dans la journée
+        const markerIcon = makeIcon(String(aIdx + 1), color, 30);
+        L.marker(coords, { icon: markerIcon })
+          .addTo(group)
+          .bindPopup(`<div style="min-width:180px"><strong>${act.activite}</strong><br><small style="color:#64748b">Jour ${day.jour} · ${act.heure||''}</small><br><span style="font-size:12px;line-height:1.4;display:block;margin-top:4px">${act.description||''}</span></div>`, { maxWidth: 240 });
+      });
+
+      // Polyligne pointillée reliant les activités du jour
+      let poly = null;
+      if (dayCoords.length > 1) {
+        poly = L.polyline(dayCoords, {
+          color,
+          weight: 3,
+          opacity: 0.75,
+          dashArray: '8, 6'
+        }).addTo(group);
+      }
+
+      dayGroups.push({ group, poly, color, coords: dayCoords, day });
+    });
+
+    // Afficher tous les jours par défaut
+    dayGroups.forEach(d => d.group.addTo(map));
+
+    // Fit bounds sur toutes les activités + hôtels + restos
+    const hotelCoords = (data.hebergements||[]).filter(h=>h.lat&&h.lng).map(h=>[+h.lat,+h.lng]);
+    const restoCoords = (data.restaurants||[]).filter(r=>r.lat&&r.lng).map(r=>[+r.lat,+r.lng]);
+    const allBoundsCoords = [...allCoords, ...hotelCoords, ...restoCoords];
+    if (allBoundsCoords.length > 0) {
+      map.fitBounds(L.latLngBounds(allBoundsCoords), { padding: [40, 40] });
+    }
+
+    // ---- Boutons de filtre ----
+    let activeDay = -1; // -1 = tous
+
+    function applyFilter(selectedIdx) {
+      activeDay = selectedIdx;
+      dayGroups.forEach((d, i) => {
+        if (selectedIdx === -1 || i === selectedIdx) {
+          d.group.addTo(map);
+        } else {
+          map.removeLayer(d.group);
+        }
+      });
+      // Fit bounds sur le jour sélectionné
+      if (selectedIdx !== -1) {
+        const d = dayGroups[selectedIdx];
+        const coordsToFit = [...d.coords, ...hotelCoords];
+        if (coordsToFit.length > 0) map.fitBounds(L.latLngBounds(coordsToFit), { padding: [50, 50] });
+      } else {
+        if (allBoundsCoords.length > 0) map.fitBounds(L.latLngBounds(allBoundsCoords), { padding: [40, 40] });
+      }
+      // Mise à jour des boutons
+      if (filterEl) {
+        filterEl.querySelectorAll('.map-day-btn').forEach((btn, i) => {
+          const isAll = btn.dataset.day === 'all';
+          const isSelected = (selectedIdx === -1 && isAll) || (!isAll && +btn.dataset.day === selectedIdx);
+          const color = isAll ? '#334155' : dayGroups[+btn.dataset.day]?.color;
+          btn.style.borderColor = color;
+          btn.style.background = isSelected ? color : 'white';
+          btn.style.color = isSelected ? 'white' : color;
+          btn.classList.toggle('active', isSelected);
+        });
+      }
+    }
+
+    if (filterEl) {
+      const buttons = [{ label: 'Tous les jours', day: 'all', color: '#334155' }];
+      dayGroups.forEach((d, i) => {
+        buttons.push({ label: `Jour ${d.day.jour}`, day: i, color: d.color });
+      });
+
+      filterEl.innerHTML = buttons.map(b => `
+        <button class="map-day-btn active" data-day="${b.day}"
+          style="border-color:${b.color};color:${b.color};"
+          onclick="window._mapFilterClick(this)">${b.label}</button>
+      `).join('');
+
+      window._mapFilterClick = function(btn) {
+        const val = btn.dataset.day;
+        applyFilter(val === 'all' ? -1 : +val);
+      };
+
+      // Activer "Tous" par défaut
+      applyFilter(-1);
+    }
+
+    // Légende
     if (legendEl) {
-      const dayItems = dayLegend.map(d => `
+      const dayItems = dayGroups.map((d, i) => `
         <div class="map-legend-item">
           <div class="map-legend-dot" style="background:${d.color}"></div>
-          <span>${d.label}</span>
+          <span>Jour ${d.day.jour}${d.day.titre ? ' — ' + d.day.titre : ''}</span>
         </div>`).join('');
-      const specialItems = `
+      legendEl.innerHTML = dayItems + `
         <div class="map-legend-item" style="margin-left:auto">
           <div class="map-legend-dot" style="background:${HOTEL_COLOR}"></div><span>🏨 Hébergements</span>
         </div>
         <div class="map-legend-item">
           <div class="map-legend-dot" style="background:${RESTO_COLOR}"></div><span>🍽️ Restaurants</span>
         </div>`;
-      legendEl.innerHTML = dayItems + specialItems;
     }
   }
 </script>
