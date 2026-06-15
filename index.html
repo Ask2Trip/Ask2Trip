@@ -1808,7 +1808,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ license_key: key })
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = { valid: false, error: 'Réponse invalide du serveur' }; }
 
       if (data.valid) {
         localStorage.setItem('a2t_pro', 'UNLOCKED');
