@@ -6,6 +6,8 @@
   <title>Ask2Trip — Planifiez votre voyage parfait</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <!-- GetYourGuide Analytics -->
+  <script async defer src="https://widget.getyourguide.com/dist/pa.umd.production.min.js" data-gyg-partner-id="SBFA8QU"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1141,7 +1143,7 @@
 
   function gygLink(activityName, destination) {
     const q = encodeURIComponent((activityName || '') + ' ' + (destination || ''));
-    return `https://www.getyourguide.fr/s/?q=${q}`;
+    return `https://www.getyourguide.fr/s/?q=${q}&partner_id=SBFA8QU`;
   }
 
   function googleFlightsLink() {
