@@ -131,19 +131,29 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash'];
 
-    const geminiRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 65536
-        }
-      })
-    });
+    const callGemini = async (model) => {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 65536 }
+        })
+      });
+      return res;
+    };
+
+    let geminiRes = await callGemini(MODELS[0]);
+
+    // Si surchargé (503) ou rate limit (429), retry sur le modèle de secours
+    if (geminiRes.status === 503 || geminiRes.status === 429) {
+      console.log(`${MODELS[0]} surchargé (${geminiRes.status}), fallback sur ${MODELS[1]}`);
+      await new Promise(r => setTimeout(r, 1000));
+      geminiRes = await callGemini(MODELS[1]);
+    }
 
     if (!geminiRes.ok) {
       const errData = await geminiRes.json();
