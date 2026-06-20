@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ask2Trip — Planifiez votre voyage parfait</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+  <link rel="apple-touch-icon" href="/favicon-192.png" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <!-- Leaflet map -->
@@ -1460,6 +1464,14 @@
     return 'https://www.skyscanner.fr';
   }
 
+  function sncfLink() {
+    return 'https://www.sncf-connect.com';
+  }
+
+  function trainlineLink() {
+    return 'https://www.thetrainline.com/fr';
+  }
+
   function renderResults(data, params) {
     const { destination, depart, dateDebut, dateFin, budget, voyageurs } = params;
     window._currentParams = params;
@@ -1486,44 +1498,83 @@
 
       ${(function() {
         const t = data.transport || {};
-        const gfLink = googleFlightsLink();
-        const skyLink = skyscannerLink();
+        const avion = t.avion || {};
+        const train = t.train || {};
+        const voiture = t.voiture || {};
+        const reco = t.mode_recommande || 'avion';
         let html = '';
 
-        // Bandeau vols
-        html += `<div class="affil-banner">
-          <span class="affil-icon">✈️</span>
-          <div style="flex:1">
-            <strong>Vols ${depart ? 'depuis ' + depart : ''} → ${destination}</strong>
-            ${t.depart_airport ? `<span style="opacity:.8;font-size:13px;margin-left:8px;">(aéroport : ${t.depart_airport})</span>` : ''}
-            <br><span style="font-size:13px;opacity:.85;">${t.flight_duration || ''}</span>
-            <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;">
-              <a href="${gfLink}" target="_blank" style="color:#166534;font-weight:700;">Google Flights →</a>
-              ${skyLink ? `<a href="${skyLink}" target="_blank" style="color:#166534;font-weight:700;">Skyscanner →</a>` : ''}
-            </div>
-          </div>
-        </div>`;
+        const badge = (mode) => mode === reco
+          ? `<span style="background:#6366f1;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;margin-left:8px;">RECOMMANDÉ</span>`
+          : '';
 
-        // Trajet voiture si pas d'aéroport direct
-        if (!t.depart_has_airport && t.depart_drive_km) {
+        // Bandeau AVION (seulement si pertinent)
+        if (avion.pertinent !== false) {
+          const gfLink = googleFlightsLink();
+          const skyLink = skyscannerLink();
+          html += `<div class="affil-banner">
+            <span class="affil-icon">✈️</span>
+            <div style="flex:1">
+              <strong>Avion ${depart ? 'depuis ' + depart : ''} → ${destination}</strong>${badge('avion')}
+              ${avion.depart_airport ? `<span style="opacity:.8;font-size:13px;margin-left:8px;">(aéroport : ${avion.depart_airport})</span>` : ''}
+              <br><span style="font-size:13px;opacity:.85;">${avion.flight_duration || ''}</span>
+              <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;">
+                <a href="${gfLink}" target="_blank" style="color:#166534;font-weight:700;">Google Flights →</a>
+                ${skyLink ? `<a href="${skyLink}" target="_blank" style="color:#166534;font-weight:700;">Skyscanner →</a>` : ''}
+              </div>
+            </div>
+          </div>`;
+
+          // Trajet voiture vers/depuis l'aéroport si pas d'aéroport direct
+          if (!avion.depart_has_airport && avion.depart_drive_km) {
+            html += `<div class="affil-banner" style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-color:#fde047;color:#713f12;margin-top:12px;">
+              <span class="affil-icon">🚗</span>
+              <div>
+                <strong>Trajet voiture vers ${avion.depart_airport}</strong><br>
+                <span style="font-size:13px;">${avion.depart_drive_km} km · ${avion.depart_drive_duration} · Carburant ≈ ${avion.depart_fuel_estimate || '—'} · Péages ≈ ${avion.depart_tolls_estimate || '—'}</span>
+                <br><a href="https://www.viamichelin.fr" target="_blank" style="color:#92400e;font-weight:700;font-size:13px;">Calculer l'itinéraire ViaMichelin →</a>
+              </div>
+            </div>`;
+          }
+          if (!avion.destination_has_airport && avion.destination_drive_km) {
+            html += `<div class="affil-banner" style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-color:#fde047;color:#713f12;margin-top:12px;">
+              <span class="affil-icon">🚗</span>
+              <div>
+                <strong>Depuis l'aéroport vers ${destination}</strong><br>
+                <span style="font-size:13px;">${avion.destination_drive_km} km · ${avion.destination_drive_duration} · Carburant ≈ ${avion.destination_fuel_estimate || '—'} · Péages ≈ ${avion.destination_tolls_estimate || '—'}</span>
+              </div>
+            </div>`;
+          }
+        }
+
+        // Bandeau TRAIN (seulement si pertinent) - jamais de lien GetYourGuide ici
+        if (train.pertinent !== false && (train.gare_depart || train.duree_estimee)) {
+          html += `<div class="affil-banner" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd;color:#1e3a8a;margin-top:12px;">
+            <span class="affil-icon">🚄</span>
+            <div style="flex:1">
+              <strong>Train ${depart ? 'depuis ' + depart : ''} → ${destination}</strong>${badge('train')}
+              ${train.type_train ? `<span style="opacity:.8;font-size:13px;margin-left:8px;">(${train.type_train})</span>` : ''}
+              <br><span style="font-size:13px;opacity:.9;">${train.gare_depart || ''} → ${train.gare_arrivee || ''} · ${train.duree_estimee || ''} · ${train.prix_estime || ''}</span>
+              <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;">
+                <a href="${sncfLink()}" target="_blank" style="color:#1e40af;font-weight:700;">SNCF Connect →</a>
+                <a href="${trainlineLink()}" target="_blank" style="color:#1e40af;font-weight:700;">Trainline →</a>
+              </div>
+            </div>
+          </div>`;
+        }
+
+        // Bandeau VOITURE direct (trajet complet, pas juste vers l'aéroport)
+        if (voiture.pertinent !== false && voiture.distance_km) {
           html += `<div class="affil-banner" style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-color:#fde047;color:#713f12;margin-top:12px;">
             <span class="affil-icon">🚗</span>
-            <div>
-              <strong>Trajet voiture vers ${t.depart_airport}</strong><br>
-              <span style="font-size:13px;">${t.depart_drive_km} km · ${t.depart_drive_duration} · Carburant ≈ ${t.depart_fuel_estimate || '—'} · Péages ≈ ${t.depart_tolls_estimate || '—'}</span>
+            <div style="flex:1">
+              <strong>Voiture ${depart ? 'depuis ' + depart : ''} → ${destination}</strong>${badge('voiture')}
+              <br><span style="font-size:13px;">${voiture.distance_km} km · ${voiture.duree_estimee || ''} · Carburant ≈ ${voiture.carburant_estime || '—'} · Péages ≈ ${voiture.peages_estime || '—'}</span>
               <br><a href="https://www.viamichelin.fr" target="_blank" style="color:#92400e;font-weight:700;font-size:13px;">Calculer l'itinéraire ViaMichelin →</a>
             </div>
           </div>`;
         }
-        if (!t.destination_has_airport && t.destination_drive_km) {
-          html += `<div class="affil-banner" style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-color:#fde047;color:#713f12;margin-top:12px;">
-            <span class="affil-icon">🚗</span>
-            <div>
-              <strong>Depuis l'aéroport vers ${destination}</strong><br>
-              <span style="font-size:13px;">${t.destination_drive_km} km · ${t.destination_drive_duration} · Carburant ≈ ${t.destination_fuel_estimate || '—'} · Péages ≈ ${t.destination_tolls_estimate || '—'}</span>
-            </div>
-          </div>`;
-        }
+
         return html;
       })()}
 

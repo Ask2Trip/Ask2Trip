@@ -32,7 +32,11 @@ DONNÉES DU VOYAGE :
 - Budget TOTAL : ${budget}€ (soit ~${budgetParPersonne}€ par personne)
 - Centres d'intérêt : ${(interets || []).join(', ') || 'culture, gastronomie'}
 
-IMPORTANT TRANSPORT : Analyse si la ville de départ (${depart || 'France'}) a un aéroport proche. Si la ville de départ n'a pas d'aéroport direct, indique l'aéroport le plus proche et calcule le trajet voiture (distance km, durée, estimation carburant en € et péages en €). Fais de même pour la destination si elle n'a pas d'aéroport.
+IMPORTANT TRANSPORT : Analyse le trajet entre ${depart || 'France'} et ${destination} et détermine pour CHAQUE mode (avion, train, voiture) s'il est pertinent (pertinent: true/false) :
+- Pour un trajet DOMESTIQUE ou court (même pays, ou pays voisins bien connectés, ex: Grenoble → Disneyland Paris, Lyon → Barcelone) : l'avion est RAREMENT pertinent (mets pertinent=false avec la raison, sauf si la distance est vraiment grande comme un trajet transcontinental). Privilégie le train (mode_recommande="train") s'il existe une liaison directe ou avec peu de correspondances, sinon la voiture.
+- Pour un trajet international lointain (ex: France → Japon, France → États-Unis) : l'avion est quasi systématiquement pertinent et recommandé, le train n'est pertinent que sur certains corridors (ex: France → Italie/Espagne/Allemagne/UK en TGV/Eurostar), sinon mets pertinent=false pour le train avec la raison ("pas de liaison ferroviaire directe transcontinentale").
+- Si la ville de départ ou la destination n'a pas d'aéroport direct ET que l'avion est pertinent, calcule le trajet voiture vers l'aéroport le plus proche (distance km, durée, carburant €, péages €) dans la section avion.
+- mode_recommande doit être le mode le plus rapide ET pratique porte-à-porte pour CE trajet précis, pas un choix par défaut.
 
 INSTRUCTIONS :
 - Génère EXACTEMENT ${nbJours} jours dans l'itinéraire
@@ -104,21 +108,42 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     }
   ],
   "transport": {
-    "depart_has_airport": true,
-    "depart_airport": "Nom et code IATA de l'aéroport de départ ou le plus proche",
-    "depart_drive_km": null,
-    "depart_drive_duration": null,
-    "depart_fuel_estimate": null,
-    "depart_tolls_estimate": null,
-    "destination_has_airport": true,
-    "destination_airport": "Nom et code IATA de l'aéroport d'arrivée ou le plus proche",
-    "destination_drive_km": null,
-    "destination_drive_duration": null,
-    "destination_fuel_estimate": null,
-    "destination_tolls_estimate": null,
-    "flight_duration": "Durée estimée du vol",
-    "iata_from": "code IATA aéroport départ ex CDG",
-    "iata_to": "code IATA aéroport arrivée ex FCO"
+    "mode_recommande": "avion | train | voiture - choisis le plus pertinent pour CE trajet précis",
+    "avion": {
+      "pertinent": true,
+      "raison_si_non_pertinent": "Si pertinent=false, explique pourquoi (ex: trajet domestique court, train plus rapide porte-à-porte)",
+      "depart_has_airport": true,
+      "depart_airport": "Nom et code IATA de l'aéroport de départ ou le plus proche",
+      "depart_drive_km": null,
+      "depart_drive_duration": null,
+      "depart_fuel_estimate": null,
+      "depart_tolls_estimate": null,
+      "destination_has_airport": true,
+      "destination_airport": "Nom et code IATA de l'aéroport d'arrivée ou le plus proche",
+      "destination_drive_km": null,
+      "destination_drive_duration": null,
+      "destination_fuel_estimate": null,
+      "destination_tolls_estimate": null,
+      "flight_duration": "Durée estimée du vol",
+      "iata_from": "code IATA aéroport départ ex CDG",
+      "iata_to": "code IATA aéroport arrivée ex FCO"
+    },
+    "train": {
+      "pertinent": true,
+      "raison_si_non_pertinent": "Si pertinent=false (ex: pas de liaison ferroviaire directe, trajet transcontinental), explique pourquoi",
+      "gare_depart": "Nom de la gare de départ la plus proche",
+      "gare_arrivee": "Nom de la gare d'arrivée la plus proche de la destination",
+      "duree_estimee": "Durée totale estimée du trajet en train",
+      "prix_estime": "Fourchette de prix aller simple par personne, ex: 45-90€",
+      "type_train": "Ex: TGV direct, ou TGV + correspondance régionale"
+    },
+    "voiture": {
+      "pertinent": true,
+      "distance_km": null,
+      "duree_estimee": null,
+      "carburant_estime": null,
+      "peages_estime": null
+    }
   },
   "budget_estime": {
     "vols": "XXX€",
@@ -129,6 +154,19 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     "total_par_personne": "XXX€"
   }
 }`;
+
+  // Alerte Discord en cas de problème (fallback ou erreur finale) - ne bloque jamais la réponse user
+  const notifyDiscord = async (message) => {
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) return;
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: message })
+      });
+    } catch (e) { /* ne jamais faire échouer la requête pour une alerte */ }
+  };
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -157,6 +195,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     // Fallback sur les modèles suivants si surchargé, quota dépassé ou erreur
     for (let i = 1; i < MODELS.length && !geminiRes.ok && [429, 500, 503].includes(geminiRes.status); i++) {
       console.log(`${MODELS[i-1].model} indisponible (${geminiRes.status}), fallback sur ${MODELS[i].model}`);
+      await notifyDiscord(`⚠️ **Ask2Trip** — \`${MODELS[i-1].model}\` indisponible (${geminiRes.status}), fallback sur \`${MODELS[i].model}\`. Surveille si ça se reproduit souvent → quota bientôt épuisé.`);
       await new Promise(r => setTimeout(r, 1000));
       geminiRes = await callGemini(MODELS[i]);
     }
@@ -164,7 +203,9 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     if (!geminiRes.ok) {
       const errData = await geminiRes.json().catch(() => ({}));
       const msg = errData.error?.message || '';
-      if (msg.toLowerCase().includes('quota') || geminiRes.status === 429) {
+      const isQuota = msg.toLowerCase().includes('quota') || geminiRes.status === 429;
+      await notifyDiscord(`🚨 **Ask2Trip — TOUS les modèles ont échoué** (dernier statut: ${geminiRes.status})\n${isQuota ? '⚠️ QUOTA GEMINI ÉPUISÉ — un utilisateur vient d\'avoir une erreur.' : ''}\n\`${msg.slice(0,200)}\``);
+      if (isQuota) {
         throw new Error('Le service IA est temporairement surchargé. Réessaie dans quelques minutes ⏳');
       }
       throw new Error(msg || `Erreur IA (${geminiRes.status})`);
@@ -235,6 +276,10 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
   } catch (err) {
     console.error('Erreur génération:', err.message);
+    // Si l'erreur ne vient pas déjà du bloc Gemini (ex: parsing JSON, bug inattendu), on alerte aussi
+    if (!err.message.includes('surchargé')) {
+      await notifyDiscord(`🚨 **Ask2Trip — erreur inattendue dans generate.js**\n\`${(err.message || '').slice(0,200)}\``);
+    }
     return res.status(500).json({ error: err.message || 'Erreur lors de la génération.' });
   }
 };
