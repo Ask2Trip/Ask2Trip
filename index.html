@@ -1834,9 +1834,9 @@
     if (!data || !params) { alert('Génère d\'abord un itinéraire.'); return; }
 
     const btn = document.querySelector('[onclick="exportPDF()"]');
-    if (btn) { btn.textContent = '⏳ Génération PDF...'; btn.disabled = true; }
+    if (btn) { btn.textContent = '🗺️ Chargement cartes...'; btn.disabled = true; }
 
-    const doExport = () => {
+    const doExport = async () => {
       const { jsPDF } = window.jspdf;
       const { destination, dateDebut, dateFin, voyageurs, budget } = params;
       const nbJours = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
@@ -1918,69 +1918,124 @@
         y+=rH+6;
       }
 
-      // ── HELPER : dessiner une mini-carte sur canvas ─────────
+      // ── HELPER : mini-carte avec tuiles OSM ─────────────────
       const dayColors=['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#0ea5e9','#f97316','#ec4899'];
 
-      const drawDayMap = (pts, col) => {
-        if(!pts||pts.length<1) return null;
-        const valid=pts.filter(p=>p.lat&&p.lng&&!isNaN(+p.lat)&&!isNaN(+p.lng));
-        if(valid.length<1) return null;
+      const drawDayMapAsync = async (pts, col) => {
+        if(!pts||pts.length<2) return null;
+        const valid=pts.filter(p=>p.lat&&p.lng&&!isNaN(+p.lat)&&!isNaN(+p.lng)&&+p.lat!==0&&+p.lng!==0);
+        if(valid.length<2) return null;
 
-        const CW_px=700, CH_px=220, PAD=30;
+        const CW_px=700, CH_px=220;
         const lats=valid.map(p=>+p.lat), lngs=valid.map(p=>+p.lng);
         let minLat=Math.min(...lats), maxLat=Math.max(...lats);
         let minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
-        // Ajouter marge si points identiques
-        if(maxLat-minLat<0.005){minLat-=0.01;maxLat+=0.01;}
-        if(maxLng-minLng<0.005){minLng-=0.01;maxLng+=0.01;}
-        const latR=maxLat-minLat, lngR=maxLng-minLng;
 
-        const toX=lng=>PAD+(lng-minLng)/lngR*(CW_px-PAD*2);
-        const toY=lat=>CH_px-PAD-(lat-minLat)/latR*(CH_px-PAD*2);
+        // Choix du zoom selon l'étendue géographique
+        const latDiff=maxLat-minLat||0.01, lngDiff=maxLng-minLng||0.01;
+        const diff=Math.max(latDiff,lngDiff);
+        const zoom = diff<0.01?15 : diff<0.05?14 : diff<0.2?13 : diff<0.5?12 : diff<2?11 : 10;
+
+        // Padding de 30% autour des points
+        const padLat=latDiff*0.35, padLng=lngDiff*0.35;
+        minLat-=padLat; maxLat+=padLat;
+        minLng-=padLng; maxLng+=padLng;
+
+        // Conversion lat/lng <-> coordonnées tile OSM
+        const lng2tF=(lng,z)=>(lng+180)/360*Math.pow(2,z);
+        const lat2tF=(lat,z)=>{
+          const r=lat*Math.PI/180;
+          return (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*Math.pow(2,z);
+        };
+
+        const txMin=Math.floor(lng2tF(minLng,zoom));
+        const txMax=Math.floor(lng2tF(maxLng,zoom));
+        const tyMin=Math.floor(lat2tF(maxLat,zoom)); // lat inversée
+        const tyMax=Math.floor(lat2tF(minLat,zoom));
+
+        const tilesW=txMax-txMin+1, tilesH=tyMax-tyMin+1;
+        const pxPerTileW=CW_px/tilesW, pxPerTileH=CH_px/tilesH;
+
+        // Conversion lat/lng -> pixel canvas
+        const lngToX=lng=>(lng2tF(lng,zoom)-txMin)*pxPerTileW;
+        const latToY=lat=>(lat2tF(lat,zoom)-tyMin)*pxPerTileH;
 
         const mc=document.createElement('canvas');
         mc.width=CW_px; mc.height=CH_px;
         const ctx=mc.getContext('2d');
 
-        // Fond
-        ctx.fillStyle='#f0f4ff'; ctx.fillRect(0,0,CW_px,CH_px);
-        // Bordure
-        ctx.strokeStyle='#c7d2fe'; ctx.lineWidth=2;
-        ctx.strokeRect(1,1,CW_px-2,CH_px-2);
+        // Fond de secours si tiles échouent
+        ctx.fillStyle='#e8edf4'; ctx.fillRect(0,0,CW_px,CH_px);
 
-        // Grille légère
-        ctx.strokeStyle='rgba(199,210,254,0.5)'; ctx.lineWidth=1;
-        for(let i=1;i<5;i++){
-          ctx.beginPath();ctx.moveTo(i*CW_px/5,0);ctx.lineTo(i*CW_px/5,CH_px);ctx.stroke();
-          ctx.beginPath();ctx.moveTo(0,i*CH_px/4);ctx.lineTo(CW_px,i*CH_px/4);ctx.stroke();
+        // Charger les tuiles OSM en parallèle
+        const tileProms=[];
+        for(let tx=txMin;tx<=txMax;tx++){
+          for(let ty=tyMin;ty<=tyMax;ty++){
+            const px=(tx-txMin)*pxPerTileW, py=(ty-tyMin)*pxPerTileH;
+            tileProms.push(new Promise(res=>{
+              const img=new Image();
+              img.crossOrigin='anonymous';
+              img.onload=()=>{ ctx.drawImage(img,px,py,pxPerTileW,pxPerTileH); res(); };
+              img.onerror=()=>res();
+              // Alterner entre sous-domaines a/b/c pour respecter la politique OSM
+              const sub=['a','b','c'][(tx+ty)%3];
+              img.src=`https://${sub}.tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+            }));
+          }
         }
+        await Promise.all(tileProms);
+
+        // Légère couche semi-transparente pour faire ressortir les marqueurs
+        ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(0,0,CW_px,CH_px);
 
         // Tracé de la route
         if(valid.length>=2){
-          ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.setLineDash([7,4]);
+          ctx.strokeStyle=col; ctx.lineWidth=3; ctx.setLineDash([8,5]);
+          ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=3;
           ctx.beginPath();
-          valid.forEach((p,i)=>{ const x=toX(+p.lng),y2=toY(+p.lat); i===0?ctx.moveTo(x,y2):ctx.lineTo(x,y2); });
-          ctx.stroke(); ctx.setLineDash([]);
+          valid.forEach((p,i)=>{ const x=lngToX(+p.lng),y2=latToY(+p.lat); i===0?ctx.moveTo(x,y2):ctx.lineTo(x,y2); });
+          ctx.stroke(); ctx.setLineDash([]); ctx.shadowBlur=0;
         }
 
-        // Points + numéros
+        // Marqueurs numérotés
         valid.forEach((p,i)=>{
-          const x=toX(+p.lng), y2=toY(+p.lat);
-          // Halo
-          ctx.beginPath(); ctx.arc(x,y2,10,0,Math.PI*2);
+          const x=lngToX(+p.lng), y2=latToY(+p.lat);
+          // Ombre
+          ctx.beginPath(); ctx.arc(x+1,y2+1,11,0,Math.PI*2);
+          ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fill();
+          // Halo blanc
+          ctx.beginPath(); ctx.arc(x,y2,11,0,Math.PI*2);
           ctx.fillStyle='white'; ctx.fill();
           // Cercle couleur
-          ctx.beginPath(); ctx.arc(x,y2,8,0,Math.PI*2);
+          ctx.beginPath(); ctx.arc(x,y2,9,0,Math.PI*2);
           ctx.fillStyle=col; ctx.fill();
           // Numéro
-          ctx.fillStyle='white'; ctx.font='bold 10px Arial';
+          ctx.fillStyle='white'; ctx.font='bold 11px Arial';
           ctx.textAlign='center'; ctx.textBaseline='middle';
           ctx.fillText(String(i+1),x,y2);
           ctx.textAlign='left'; ctx.textBaseline='alphabetic';
         });
 
+        // Attribution OSM (obligatoire)
+        ctx.fillStyle='rgba(255,255,255,0.75)';
+        ctx.fillRect(CW_px-175,CH_px-15,175,15);
+        ctx.fillStyle='#444'; ctx.font='8px Arial';
+        ctx.textAlign='right';
+        ctx.fillText('© OpenStreetMap contributors',CW_px-3,CH_px-4);
+        ctx.textAlign='left';
+
         return mc.toDataURL('image/jpeg',0.92);
       };
+
+      // Pré-charger toutes les mini-cartes avant de générer le PDF
+      const dayMaps={};
+      await Promise.all((data.itineraire||[]).map(async day=>{
+        const dayPts=(day.activites||[]).filter(a=>a.lat&&a.lng&&+a.lat!==0&&+a.lng!==0);
+        if(dayPts.length>=2){
+          try{ dayMaps[day.jour]=await drawDayMapAsync(dayPts, dayColors[(day.jour-1)%dayColors.length]); }
+          catch(e){ /* carte non disponible, on skip */ }
+        }
+      }));
 
       // ── ITINÉRAIRE ─────────────────────────────────────────
       sectionTitle('Itineraire jour par jour');
@@ -1997,16 +2052,12 @@
         doc.text(dLines, M+3, y+4);
         y+=dH+2;
 
-        // Mini-carte du jour (seulement si 2+ points GPS valides)
-        const dayPts=(day.activites||[]).filter(a=>a.lat&&a.lng&&+a.lat!==0&&+a.lng!==0);
-        if(dayPts.length>=2){
-          const mapImg=drawDayMap(dayPts, dayColors[(day.jour-1)%dayColors.length]);
-          if(mapImg){
-            const mapH=CW*220/700;
-            check(mapH+4);
-            doc.addImage(mapImg,'JPEG',M,y,CW,mapH);
-            y+=mapH+4;
-          }
+        // Mini-carte du jour (pré-chargée avec tuiles OSM)
+        if(dayMaps[day.jour]){
+          const mapH=CW*220/700;
+          check(mapH+4);
+          doc.addImage(dayMaps[day.jour],'JPEG',M,y,CW,mapH);
+          y+=mapH+4;
         }
 
         (day.activites||[]).forEach(a => {
@@ -2140,17 +2191,24 @@
       if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
     };
 
+    const runExport = () => {
+      doExport().catch(err=>{
+        if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
+        alert('Erreur PDF : '+(err.message||err));
+      });
+    };
+
     // Charger jsPDF depuis cdnjs (disponible sans restriction)
     if(!window.jspdf) {
       const script=document.createElement('script');
       script.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-      script.onload=doExport;
+      script.onload=runExport;
       script.onerror=()=>{
         if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
         alert('Impossible de charger jsPDF. Vérifie ta connexion.');
       };
       document.head.appendChild(script);
-    } else { doExport(); }
+    } else { runExport(); }
   }
 
   async function verifyLicense() {
