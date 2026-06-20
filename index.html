@@ -1962,28 +1962,43 @@
           </div>
         </div>`;
 
-      // Conteneur visible (opacity 0.01 = rendu par html2canvas mais invisible pour l'utilisateur)
+      // Overlay blanc qui masque visuellement le contenu PDF pendant la capture
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:white;z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
+      overlay.innerHTML = '<div style="font-family:Arial;font-size:18px;font-weight:700;color:#6366f1;">📄 Génération du PDF...</div><div style="font-family:Arial;font-size:13px;color:#94a3b8;">Quelques secondes</div>';
+      document.body.appendChild(overlay);
+
+      // Conteneur rendu visible (couvert par overlay) — html2canvas le capture correctement
       const container = document.createElement('div');
-      container.style.cssText = 'position:absolute;top:0;left:0;z-index:-100;opacity:0.01;pointer-events:none;';
+      container.style.cssText = 'position:fixed;top:0;left:0;z-index:9997;width:794px;background:white;';
       container.innerHTML = fullHtml;
       document.body.appendChild(container);
 
+      const cleanup = () => {
+        if (document.body.contains(container)) document.body.removeChild(container);
+        if (document.body.contains(overlay)) document.body.removeChild(overlay);
+      };
+
       const filename = 'itineraire-' + destination.toLowerCase().replace(/[^a-z0-9]/g, '-') + '.pdf';
-      html2pdf().set({
-        margin: [8, 8, 8, 8],
-        filename,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', width: 794 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(container.firstElementChild).save().then(() => {
-        document.body.removeChild(container);
-        if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
-      }).catch(err => {
-        document.body.removeChild(container);
-        if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
-        console.error(err);
-        alert('Erreur PDF : ' + err.message);
-      });
+
+      // Laisser le DOM se rendre avant de capturer
+      setTimeout(() => {
+        html2pdf().set({
+          margin: [8, 8, 8, 8],
+          filename,
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', width: 794 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(container.firstElementChild).save().then(() => {
+          cleanup();
+          if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
+        }).catch(err => {
+          cleanup();
+          if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
+          console.error(err);
+          alert('Erreur PDF : ' + err.message);
+        });
+      }, 300);
     };
 
     if (!window.html2pdf) {
