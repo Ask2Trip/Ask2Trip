@@ -1832,147 +1832,166 @@
     const params = window._currentParams;
     if (!data || !params) { alert('Génère d\'abord un itinéraire.'); return; }
 
-    const { destination, dateDebut, dateFin, voyageurs, budget } = params;
-    const nbJours = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
-    const dateStr = `${new Date(dateDebut).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} – ${new Date(dateFin).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
+    // Trouver le bouton et mettre en état de chargement
+    const btn = document.querySelector('[onclick="exportPDF()"]');
+    if (btn) { btn.textContent = '⏳ Génération PDF...'; btn.disabled = true; }
 
-    const days = (data.itineraire || []).map(day => `
-      <div class="day">
-        <div class="day-title">Jour ${day.jour} — ${day.date}<br><em>${day.titre}</em></div>
-        ${(day.activites || []).map(a => `
-          <div class="activity">
-            <span class="time">${a.heure}</span>
+    const doExport = () => {
+      const { destination, dateDebut, dateFin, voyageurs, budget } = params;
+      const nbJours = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
+      const dateStr = new Date(dateDebut).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}) + ' – ' + new Date(dateFin).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+      const cp = data.conseils_pratiques || {};
+      const be = data.budget_estime || {};
+
+      const s = (c) => `style="${c}"`;
+      const purple = '#6366f1';
+      const lightPurple = '#ede9fe';
+      const green = '#059669';
+      const gray = '#64748b';
+      const border = '#e2e8f0';
+
+      // COVER
+      let content = `<div ${s('background:${purple};padding:40px 32px;margin:-1px;')}>
+        <div ${s('color:rgba(255,255,255,0.8);font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;')}>Itinéraire personnalisé • Ask2Trip</div>
+        <div ${s('color:white;font-size:28px;font-weight:800;margin-bottom:16px;')}>🌍 ${destination}</div>
+        <div ${s('display:flex;gap:20px;flex-wrap:wrap;')}>
+          ${[`📅 ${dateStr}`, `🕐 ${nbJours} jours`, `👥 ${voyageurs} voyageur${voyageurs>1?'s':''}`, `💰 ${budget}€`]
+            .map(t=>`<span ${s('background:rgba(255,255,255,0.15);color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;')}>${t}</span>`).join('')}
+        </div>
+      </div>`;
+
+      // RESUME
+      if (data.resume) {
+        content += `<div ${s('margin:20px 0;padding:14px 18px;background:${lightPurple};border-left:4px solid ${purple};border-radius:0 8px 8px 0;font-style:italic;color:#4c1d95;font-size:13px;line-height:1.5;')}>${data.resume}</div>`;
+      }
+
+      // ITINÉRAIRE
+      content += `<div ${s('font-size:16px;font-weight:800;color:${purple};border-bottom:2px solid ${lightPurple};padding-bottom:8px;margin:24px 0 16px;')}>🗓️ Itinéraire jour par jour</div>`;
+      (data.itineraire || []).forEach(day => {
+        content += `<div ${s('margin-bottom:20px;page-break-inside:avoid;')}>
+          <div ${s('background:${purple};color:white;padding:8px 14px;border-radius:8px;font-weight:700;font-size:13px;margin-bottom:8px;')}>
+            Jour ${day.jour} — ${day.date} &nbsp;|&nbsp; <span ${s('font-weight:400;font-style:italic;')}>${day.titre}</span>
+          </div>`;
+        (day.activites || []).forEach(a => {
+          content += `<div ${s('display:flex;gap:10px;padding:7px 0;border-bottom:1px solid ${border};')}>
+            <span ${s('font-weight:700;color:${purple};min-width:48px;font-size:12px;padding-top:1px;')}>${a.heure}</span>
             <div>
-              <strong>${a.activite}</strong> <span class="dur">(${a.duree || ''})</span>
-              <div class="desc">${a.description || ''}</div>
-              ${a.prix_estime ? `<div class="price">💰 ${a.prix_estime}</div>` : ''}
+              <span ${s('font-weight:700;font-size:13px;')}>${a.activite}</span>
+              ${a.duree ? `<span ${s('color:${gray};font-size:11px;margin-left:6px;')}>(${a.duree})</span>` : ''}
+              ${a.description ? `<div ${s('color:${gray};font-size:11.5px;margin-top:2px;line-height:1.4;')}>${a.description}</div>` : ''}
+              ${a.prix_estime ? `<div ${s('color:${green};font-size:11px;margin-top:2px;')}>💰 ${a.prix_estime}</div>` : ''}
             </div>
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
+          </div>`;
+        });
+        content += `</div>`;
+      });
 
-    const hotels = (data.hebergements || []).map(h => `
-      <div class="hotel">
-        <strong>${h.nom}</strong> ${'⭐'.repeat(h.etoiles||3)} — ${h.quartier || ''}<br>
-        <span class="price">${h.prix_nuit}/nuit</span> · ${h.description || ''}
-      </div>
-    `).join('');
+      // HÉBERGEMENTS
+      if ((data.hebergements||[]).length) {
+        content += `<div ${s('font-size:16px;font-weight:800;color:${purple};border-bottom:2px solid ${lightPurple};padding-bottom:8px;margin:24px 0 16px;')}>🏨 Hébergements recommandés</div>`;
+        (data.hebergements||[]).forEach(h => {
+          content += `<div ${s('padding:12px 14px;margin-bottom:10px;background:#f8fafc;border-radius:8px;border:1px solid ${border};page-break-inside:avoid;')}>
+            <div ${s('display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;')}>
+              <span ${s('font-weight:700;font-size:13px;')}>${h.nom}</span>
+              <span ${s('color:${green};font-weight:700;font-size:12px;')}>${h.prix_nuit}/nuit</span>
+            </div>
+            <div ${s('color:${gray};font-size:11.5px;')}>${'⭐'.repeat(h.etoiles||3)} · ${h.quartier||''}</div>
+            ${h.description ? `<div ${s('color:#475569;font-size:11px;margin-top:4px;line-height:1.4;')}>${h.description}</div>` : ''}
+          </div>`;
+        });
+      }
 
-    const restos = (data.restaurants || []).map(r => `
-      <div class="resto">
-        <strong>${r.nom}</strong> (${r.type}) ${r.prix || ''} — ${r.quartier || ''}<br>
-        <em>${r.specialite || ''}</em> · ${r.description || ''}
-      </div>
-    `).join('');
+      // RESTAURANTS
+      if ((data.restaurants||[]).length) {
+        content += `<div ${s('font-size:16px;font-weight:800;color:${purple};border-bottom:2px solid ${lightPurple};padding-bottom:8px;margin:24px 0 16px;')}>🍽️ Restaurants incontournables</div>`;
+        (data.restaurants||[]).forEach(r => {
+          content += `<div ${s('padding:12px 14px;margin-bottom:10px;background:#f8fafc;border-radius:8px;border:1px solid ${border};page-break-inside:avoid;')}>
+            <div ${s('font-weight:700;font-size:13px;margin-bottom:2px;')}>${r.nom} <span ${s('color:${gray};font-weight:400;font-size:11px;')}>${r.type} · ${r.prix||''} · ${r.quartier||''}</span></div>
+            ${r.specialite ? `<div ${s('color:#b45309;font-size:11.5px;font-style:italic;')}>${r.specialite}</div>` : ''}
+            ${r.description ? `<div ${s('color:#475569;font-size:11px;margin-top:3px;')}>${r.description}</div>` : ''}
+          </div>`;
+        });
+      }
 
-    const cp = data.conseils_pratiques || {};
-    const be = data.budget_estime || {};
+      // BUDGET
+      const beKeys = Object.keys(be);
+      if (beKeys.length) {
+        content += `<div ${s('font-size:16px;font-weight:800;color:${purple};border-bottom:2px solid ${lightPurple};padding-bottom:8px;margin:24px 0 16px;')}>💰 Budget estimé</div>`;
+        content += `<table ${s('width:100%;border-collapse:collapse;font-size:12px;')}>`;
+        const rows = [['✈️ Vols', be.vols], ['🏨 Hébergement', be.hebergement], ['🎯 Activités', be.activites], ['🍽️ Repas', be.repas], ['🛍️ Divers', be.divers]];
+        rows.forEach(([l,v]) => { if(v) content += `<tr><td ${s('padding:8px 12px;border-bottom:1px solid ${border};')}>${l}</td><td ${s('padding:8px 12px;border-bottom:1px solid ${border};text-align:right;')}>${v}</td></tr>`; });
+        if (be.total_par_personne) content += `<tr><td ${s('padding:10px 12px;font-weight:800;background:${lightPurple};color:${purple};border-radius:0 0 0 8px;')} colspan="1">Total par personne</td><td ${s('padding:10px 12px;font-weight:800;background:${lightPurple};color:${purple};text-align:right;border-radius:0 0 8px 0;')}>${be.total_par_personne}</td></tr>`;
+        content += `</table>`;
+      }
 
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-    <title>Itinéraire ${destination} — Ask2Trip</title>
-    <style>
-      * { box-sizing:border-box; margin:0; padding:0; }
-      body { font-family: Georgia, serif; font-size: 11pt; color: #1a1a2e; background: white; padding: 0; }
-      @page { margin: 18mm 16mm; }
+      // INFOS PRATIQUES
+      if (cp.meteo || cp.monnaie || cp.visa) {
+        content += `<div ${s('font-size:16px;font-weight:800;color:${purple};border-bottom:2px solid ${lightPurple};padding-bottom:8px;margin:24px 0 16px;')}>📋 Infos pratiques</div>`;
+        content += `<div ${s('display:grid;grid-template-columns:1fr 1fr;gap:10px;')}>`;
+        const tips = [
+          cp.meteo && ['🌤️ Météo', cp.meteo],
+          cp.monnaie && ['💱 Monnaie', cp.monnaie],
+          cp.langue && ['🗣️ Langue', cp.langue],
+          cp.visa && ['🛂 Visa', cp.visa],
+          cp.meilleure_periode && ['📅 Meilleure période', cp.meilleure_periode],
+        ].filter(Boolean);
+        tips.forEach(([l,v]) => {
+          content += `<div ${s('padding:10px 14px;background:#f8fafc;border:1px solid ${border};border-radius:8px;')}>
+            <div ${s('font-weight:700;color:${purple};font-size:12px;margin-bottom:3px;')}>${l}</div>
+            <div ${s('color:#475569;font-size:11px;line-height:1.4;')}>${v}</div>
+          </div>`;
+        });
+        content += `</div>`;
+        if ((cp.conseils||[]).length) {
+          content += `<div ${s('margin-top:10px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;')}>
+            <div ${s('font-weight:700;color:#166534;font-size:12px;margin-bottom:6px;')}>💡 Conseils essentiels</div>
+            ${(cp.conseils||[]).map(c=>`<div ${s('color:#15803d;font-size:11px;margin-bottom:3px;')}>• ${c}</div>`).join('')}
+          </div>`;
+        }
+      }
 
-      .cover { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 48px 40px; min-height: 180px; }
-      .cover h1 { font-size: 28pt; font-weight: bold; margin-bottom: 8px; }
-      .cover .sub { font-size: 13pt; opacity: .9; margin-bottom: 20px; }
-      .cover .meta { display: flex; gap: 24px; font-size: 10pt; opacity: .85; flex-wrap: wrap; }
-      .cover .meta span::before { margin-right: 4px; }
+      // FOOTER
+      content += `<div ${s('text-align:center;font-size:10px;color:#94a3b8;padding:20px 0 8px;border-top:1px solid ${border};margin-top:28px;')}>
+        Généré par <strong>Ask2Trip</strong> — ask2trip.vercel.app · ${new Date().toLocaleDateString('fr-FR')}
+      </div>`;
 
-      .resume { background: #f0f0ff; border-left: 4px solid #6366f1; padding: 14px 18px; margin: 20px 24px; font-style: italic; color: #3730a3; font-size: 10.5pt; border-radius: 0 8px 8px 0; }
+      // Injecter dans un conteneur hors-écran
+      const container = document.createElement('div');
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1e293b;padding:0;';
+      container.innerHTML = content;
+      document.body.appendChild(container);
 
-      .section { padding: 0 24px; margin-bottom: 24px; }
-      .section-title { font-size: 15pt; font-weight: bold; color: #6366f1; border-bottom: 2px solid #e0e7ff; padding-bottom: 6px; margin-bottom: 14px; margin-top: 20px; }
+      const filename = 'itineraire-' + destination.toLowerCase().replace(/[^a-z0-9]/g, '-') + '.pdf';
+      html2pdf().set({
+        margin: [12, 12, 12, 12],
+        filename,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      }).from(container).save().then(() => {
+        document.body.removeChild(container);
+        if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
+      }).catch(err => {
+        document.body.removeChild(container);
+        if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
+        alert('Erreur PDF : ' + err.message);
+      });
+    };
 
-      .day { margin-bottom: 18px; break-inside: avoid; }
-      .day-title { background: #6366f1; color: white; padding: 8px 14px; border-radius: 8px; font-size: 11pt; font-weight: bold; margin-bottom: 8px; }
-      .day-title em { font-weight: normal; font-size: 10pt; }
-      .activity { display: flex; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
-      .time { font-weight: bold; color: #6366f1; min-width: 46px; font-size: 10pt; padding-top: 2px; }
-      .desc { font-size: 9.5pt; color: #475569; margin-top: 2px; }
-      .price { font-size: 9pt; color: #059669; margin-top: 2px; }
-      .dur { font-size: 9pt; color: #94a3b8; }
-
-      .hotel, .resto { padding: 10px 14px; margin-bottom: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 10pt; break-inside: avoid; }
-      .hotel strong, .resto strong { color: #1e293b; }
-      .hotel .price { color: #059669; }
-
-      .budget-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
-      .budget-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
-      .budget-table td:last-child { text-align: right; font-weight: 600; color: #6366f1; }
-      .budget-table tr:last-child td { border-bottom: none; font-weight: bold; font-size: 11pt; background: #f0f0ff; }
-
-      .tips-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-      .tip { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; font-size: 9.5pt; break-inside: avoid; }
-      .tip strong { display: block; color: #6366f1; margin-bottom: 3px; font-size: 10pt; }
-
-      .footer { text-align: center; font-size: 8.5pt; color: #94a3b8; padding: 16px 24px 8px; border-top: 1px solid #e2e8f0; margin-top: 24px; }
-    </style>
-    </head><body>
-
-    <div class="cover">
-      <div class="sub">Itinéraire personnalisé par Ask2Trip</div>
-      <h1>🌍 ${destination}</h1>
-      <div class="meta">
-        <span>📅 ${dateStr}</span>
-        <span>🕐 ${nbJours} jours</span>
-        <span>👥 ${voyageurs} voyageur${voyageurs>1?'s':''}</span>
-        <span>💰 Budget ${budget}€</span>
-      </div>
-    </div>
-
-    ${data.resume ? `<div class="resume">${data.resume}</div>` : ''}
-
-    <div class="section">
-      <div class="section-title">🗓️ Itinéraire jour par jour</div>
-      ${days}
-    </div>
-
-    ${data.hebergements?.length ? `<div class="section">
-      <div class="section-title">🏨 Hébergements recommandés</div>
-      ${hotels}
-    </div>` : ''}
-
-    ${data.restaurants?.length ? `<div class="section">
-      <div class="section-title">🍽️ Restaurants incontournables</div>
-      ${restos}
-    </div>` : ''}
-
-    ${Object.keys(be).length ? `<div class="section">
-      <div class="section-title">💰 Budget estimé</div>
-      <table class="budget-table">
-        <tr><td>✈️ Vols</td><td>${be.vols||'—'}</td></tr>
-        <tr><td>🏨 Hébergement</td><td>${be.hebergement||'—'}</td></tr>
-        <tr><td>🎯 Activités</td><td>${be.activites||'—'}</td></tr>
-        <tr><td>🍽️ Repas</td><td>${be.repas||'—'}</td></tr>
-        <tr><td>🛍️ Divers</td><td>${be.divers||'—'}</td></tr>
-        <tr><td>Total par personne</td><td>${be.total_par_personne||'—'}</td></tr>
-      </table>
-    </div>` : ''}
-
-    ${cp.meteo || cp.monnaie || cp.visa ? `<div class="section">
-      <div class="section-title">📋 Infos pratiques</div>
-      <div class="tips-grid">
-        ${cp.meteo ? `<div class="tip"><strong>🌤️ Météo</strong>${cp.meteo}</div>` : ''}
-        ${cp.monnaie ? `<div class="tip"><strong>💱 Monnaie</strong>${cp.monnaie}</div>` : ''}
-        ${cp.langue ? `<div class="tip"><strong>🗣️ Langue</strong>${cp.langue}</div>` : ''}
-        ${cp.visa ? `<div class="tip"><strong>🛂 Visa</strong>${cp.visa}</div>` : ''}
-        ${cp.meilleure_periode ? `<div class="tip"><strong>📅 Meilleure période</strong>${cp.meilleure_periode}</div>` : ''}
-        ${(cp.conseils||[]).length ? `<div class="tip"><strong>💡 Conseils</strong>${(cp.conseils||[]).map(c=>`• ${c}`).join('<br>')}</div>` : ''}
-      </div>
-    </div>` : ''}
-
-    <div class="footer">Généré par <strong>Ask2Trip</strong> — ask2trip.vercel.app · ${new Date().toLocaleDateString('fr-FR')}</div>
-
-    <script>window.onload = function() { window.print(); }<\/script>
-    </body></html>`;
-
-    const w = window.open('', '_blank');
-    w.document.write(html);
-    w.document.close();
+    // Charger html2pdf.js dynamiquement (seulement quand nécessaire)
+    if (!window.html2pdf) {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js';
+      script.onload = doExport;
+      script.onerror = () => {
+        if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
+        alert('Impossible de charger la bibliothèque PDF. Vérifie ta connexion.');
+      };
+      document.head.appendChild(script);
+    } else {
+      doExport();
+    }
   }
 
   async function verifyLicense() {
