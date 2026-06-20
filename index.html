@@ -1466,8 +1466,15 @@
 
     const html = `
       <div class="result-header">
-        <h2>🌍 Votre voyage à ${destination}</h2>
-        <p>${data.resume || ''}</p>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div style="flex:1;">
+            <h2>🌍 Votre voyage à ${destination}</h2>
+            <p>${data.resume || ''}</p>
+          </div>
+          <button onclick="exportPDF()" style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 18px;background:${isPro() ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#94a3b8'};color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;font-family:Inter,sans-serif;white-space:nowrap;" title="${isPro() ? 'Exporter en PDF' : 'Fonctionnalité Pro'}">
+            📄 ${isPro() ? 'Exporter PDF' : '🔒 PDF Pro'}
+          </button>
+        </div>
         <div class="result-meta">
           <div class="result-meta-item">📅 ${new Date(dateDebut).toLocaleDateString('fr-FR', {day:'numeric',month:'long'})} → ${new Date(dateFin).toLocaleDateString('fr-FR', {day:'numeric',month:'long',year:'numeric'})}</div>
           <div class="result-meta-item">🕐 ${nbJours} jours</div>
@@ -1707,6 +1714,7 @@
 
     document.getElementById('resultsContent').innerHTML = html;
     window._lastBudgetEstime = data.budget_estime;
+    window._lastTripData = data;
     setTimeout(() => buildBudgetChart(data.budget_estime), 100);
     setTimeout(() => buildMap(data), 150);
   }
@@ -1816,6 +1824,155 @@
   function showUnlockForm() {
     document.getElementById('unlockForm').style.display = 'block';
     document.getElementById('licenseInput').focus();
+  }
+
+  function exportPDF() {
+    if (!isPro()) { showPaywall('pdf'); return; }
+    const data = window._lastTripData;
+    const params = window._currentParams;
+    if (!data || !params) { alert('Génère d\'abord un itinéraire.'); return; }
+
+    const { destination, dateDebut, dateFin, voyageurs, budget } = params;
+    const nbJours = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
+    const dateStr = `${new Date(dateDebut).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} – ${new Date(dateFin).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}`;
+
+    const days = (data.itineraire || []).map(day => `
+      <div class="day">
+        <div class="day-title">Jour ${day.jour} — ${day.date}<br><em>${day.titre}</em></div>
+        ${(day.activites || []).map(a => `
+          <div class="activity">
+            <span class="time">${a.heure}</span>
+            <div>
+              <strong>${a.activite}</strong> <span class="dur">(${a.duree || ''})</span>
+              <div class="desc">${a.description || ''}</div>
+              ${a.prix_estime ? `<div class="price">💰 ${a.prix_estime}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+
+    const hotels = (data.hebergements || []).map(h => `
+      <div class="hotel">
+        <strong>${h.nom}</strong> ${'⭐'.repeat(h.etoiles||3)} — ${h.quartier || ''}<br>
+        <span class="price">${h.prix_nuit}/nuit</span> · ${h.description || ''}
+      </div>
+    `).join('');
+
+    const restos = (data.restaurants || []).map(r => `
+      <div class="resto">
+        <strong>${r.nom}</strong> (${r.type}) ${r.prix || ''} — ${r.quartier || ''}<br>
+        <em>${r.specialite || ''}</em> · ${r.description || ''}
+      </div>
+    `).join('');
+
+    const cp = data.conseils_pratiques || {};
+    const be = data.budget_estime || {};
+
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+    <title>Itinéraire ${destination} — Ask2Trip</title>
+    <style>
+      * { box-sizing:border-box; margin:0; padding:0; }
+      body { font-family: Georgia, serif; font-size: 11pt; color: #1a1a2e; background: white; padding: 0; }
+      @page { margin: 18mm 16mm; }
+
+      .cover { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 48px 40px; min-height: 180px; }
+      .cover h1 { font-size: 28pt; font-weight: bold; margin-bottom: 8px; }
+      .cover .sub { font-size: 13pt; opacity: .9; margin-bottom: 20px; }
+      .cover .meta { display: flex; gap: 24px; font-size: 10pt; opacity: .85; flex-wrap: wrap; }
+      .cover .meta span::before { margin-right: 4px; }
+
+      .resume { background: #f0f0ff; border-left: 4px solid #6366f1; padding: 14px 18px; margin: 20px 24px; font-style: italic; color: #3730a3; font-size: 10.5pt; border-radius: 0 8px 8px 0; }
+
+      .section { padding: 0 24px; margin-bottom: 24px; }
+      .section-title { font-size: 15pt; font-weight: bold; color: #6366f1; border-bottom: 2px solid #e0e7ff; padding-bottom: 6px; margin-bottom: 14px; margin-top: 20px; }
+
+      .day { margin-bottom: 18px; break-inside: avoid; }
+      .day-title { background: #6366f1; color: white; padding: 8px 14px; border-radius: 8px; font-size: 11pt; font-weight: bold; margin-bottom: 8px; }
+      .day-title em { font-weight: normal; font-size: 10pt; }
+      .activity { display: flex; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+      .time { font-weight: bold; color: #6366f1; min-width: 46px; font-size: 10pt; padding-top: 2px; }
+      .desc { font-size: 9.5pt; color: #475569; margin-top: 2px; }
+      .price { font-size: 9pt; color: #059669; margin-top: 2px; }
+      .dur { font-size: 9pt; color: #94a3b8; }
+
+      .hotel, .resto { padding: 10px 14px; margin-bottom: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 10pt; break-inside: avoid; }
+      .hotel strong, .resto strong { color: #1e293b; }
+      .hotel .price { color: #059669; }
+
+      .budget-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+      .budget-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+      .budget-table td:last-child { text-align: right; font-weight: 600; color: #6366f1; }
+      .budget-table tr:last-child td { border-bottom: none; font-weight: bold; font-size: 11pt; background: #f0f0ff; }
+
+      .tips-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .tip { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; font-size: 9.5pt; break-inside: avoid; }
+      .tip strong { display: block; color: #6366f1; margin-bottom: 3px; font-size: 10pt; }
+
+      .footer { text-align: center; font-size: 8.5pt; color: #94a3b8; padding: 16px 24px 8px; border-top: 1px solid #e2e8f0; margin-top: 24px; }
+    </style>
+    </head><body>
+
+    <div class="cover">
+      <div class="sub">Itinéraire personnalisé par Ask2Trip</div>
+      <h1>🌍 ${destination}</h1>
+      <div class="meta">
+        <span>📅 ${dateStr}</span>
+        <span>🕐 ${nbJours} jours</span>
+        <span>👥 ${voyageurs} voyageur${voyageurs>1?'s':''}</span>
+        <span>💰 Budget ${budget}€</span>
+      </div>
+    </div>
+
+    ${data.resume ? `<div class="resume">${data.resume}</div>` : ''}
+
+    <div class="section">
+      <div class="section-title">🗓️ Itinéraire jour par jour</div>
+      ${days}
+    </div>
+
+    ${data.hebergements?.length ? `<div class="section">
+      <div class="section-title">🏨 Hébergements recommandés</div>
+      ${hotels}
+    </div>` : ''}
+
+    ${data.restaurants?.length ? `<div class="section">
+      <div class="section-title">🍽️ Restaurants incontournables</div>
+      ${restos}
+    </div>` : ''}
+
+    ${Object.keys(be).length ? `<div class="section">
+      <div class="section-title">💰 Budget estimé</div>
+      <table class="budget-table">
+        <tr><td>✈️ Vols</td><td>${be.vols||'—'}</td></tr>
+        <tr><td>🏨 Hébergement</td><td>${be.hebergement||'—'}</td></tr>
+        <tr><td>🎯 Activités</td><td>${be.activites||'—'}</td></tr>
+        <tr><td>🍽️ Repas</td><td>${be.repas||'—'}</td></tr>
+        <tr><td>🛍️ Divers</td><td>${be.divers||'—'}</td></tr>
+        <tr><td>Total par personne</td><td>${be.total_par_personne||'—'}</td></tr>
+      </table>
+    </div>` : ''}
+
+    ${cp.meteo || cp.monnaie || cp.visa ? `<div class="section">
+      <div class="section-title">📋 Infos pratiques</div>
+      <div class="tips-grid">
+        ${cp.meteo ? `<div class="tip"><strong>🌤️ Météo</strong>${cp.meteo}</div>` : ''}
+        ${cp.monnaie ? `<div class="tip"><strong>💱 Monnaie</strong>${cp.monnaie}</div>` : ''}
+        ${cp.langue ? `<div class="tip"><strong>🗣️ Langue</strong>${cp.langue}</div>` : ''}
+        ${cp.visa ? `<div class="tip"><strong>🛂 Visa</strong>${cp.visa}</div>` : ''}
+        ${cp.meilleure_periode ? `<div class="tip"><strong>📅 Meilleure période</strong>${cp.meilleure_periode}</div>` : ''}
+        ${(cp.conseils||[]).length ? `<div class="tip"><strong>💡 Conseils</strong>${(cp.conseils||[]).map(c=>`• ${c}`).join('<br>')}</div>` : ''}
+      </div>
+    </div>` : ''}
+
+    <div class="footer">Généré par <strong>Ask2Trip</strong> — ask2trip.vercel.app · ${new Date().toLocaleDateString('fr-FR')}</div>
+
+    <script>window.onload = function() { window.print(); }<\/script>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
   }
 
   async function verifyLicense() {
