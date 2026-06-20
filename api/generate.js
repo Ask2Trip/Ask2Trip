@@ -132,10 +132,11 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
+    // gemini-2.0-flash et gemini-1.5-flash sont retirés par Google (404) depuis juin 2026.
+    // gemini-3.5-flash (sorti le 19/05/2026) remplace 2.0-flash comme fallback.
     const MODELS = [
       { model: 'gemini-2.5-flash', version: 'v1beta' },
-      { model: 'gemini-2.0-flash', version: 'v1beta' },
-      { model: 'gemini-1.5-flash', version: 'v1' }
+      { model: 'gemini-3.5-flash', version: 'v1beta' }
     ];
 
     const callGemini = async ({ model, version }) => {
