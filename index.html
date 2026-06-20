@@ -1917,82 +1917,69 @@
         y+=rH+6;
       }
 
-      // ── CARTE ──────────────────────────────────────────────
+      // ── HELPER : dessiner une mini-carte sur canvas ─────────
       const dayColors=['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#0ea5e9','#f97316','#ec4899'];
-      const allPts=[];
-      (data.itineraire||[]).forEach(day=>{
-        (day.activites||[]).forEach(a=>{ if(a.lat&&a.lng) allPts.push({lat:+a.lat,lng:+a.lng,day:day.jour,name:a.activite}); });
-      });
-      (data.hebergements||[]).forEach(h=>{ if(h.lat&&h.lng) allPts.push({lat:+h.lat,lng:+h.lng,type:'hotel'}); });
 
-      if(allPts.length>=2) {
-        const lats=allPts.map(p=>p.lat), lngs=allPts.map(p=>p.lng);
-        const minLat=Math.min(...lats)-0.02, maxLat=Math.max(...lats)+0.02;
-        const minLng=Math.min(...lngs)-0.02, maxLng=Math.max(...lngs)+0.02;
-        const latR=maxLat-minLat||0.05, lngR=maxLng-minLng||0.05;
+      const drawDayMap = (pts, col) => {
+        if(!pts||pts.length<1) return null;
+        const valid=pts.filter(p=>p.lat&&p.lng&&!isNaN(+p.lat)&&!isNaN(+p.lng));
+        if(valid.length<1) return null;
 
-        const CW_px=800, CH_px=380;
-        const toX=lng=>(lng-minLng)/lngR*CW_px;
-        const toY=lat=>CH_px-(lat-minLat)/latR*CH_px;
+        const CW_px=700, CH_px=220, PAD=30;
+        const lats=valid.map(p=>+p.lat), lngs=valid.map(p=>+p.lng);
+        let minLat=Math.min(...lats), maxLat=Math.max(...lats);
+        let minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+        // Ajouter marge si points identiques
+        if(maxLat-minLat<0.005){minLat-=0.01;maxLat+=0.01;}
+        if(maxLng-minLng<0.005){minLng-=0.01;maxLng+=0.01;}
+        const latR=maxLat-minLat, lngR=maxLng-minLng;
+
+        const toX=lng=>PAD+(lng-minLng)/lngR*(CW_px-PAD*2);
+        const toY=lat=>CH_px-PAD-(lat-minLat)/latR*(CH_px-PAD*2);
 
         const mc=document.createElement('canvas');
         mc.width=CW_px; mc.height=CH_px;
         const ctx=mc.getContext('2d');
 
-        // Fond dégradé bleu ciel
-        const bg=ctx.createLinearGradient(0,0,0,CH_px);
-        bg.addColorStop(0,'#dbeafe'); bg.addColorStop(1,'#eff6ff');
-        ctx.fillStyle=bg; ctx.fillRect(0,0,CW_px,CH_px);
+        // Fond
+        ctx.fillStyle='#f0f4ff'; ctx.fillRect(0,0,CW_px,CH_px);
+        // Bordure
+        ctx.strokeStyle='#c7d2fe'; ctx.lineWidth=2;
+        ctx.strokeRect(1,1,CW_px-2,CH_px-2);
 
         // Grille légère
-        ctx.strokeStyle='rgba(255,255,255,0.6)'; ctx.lineWidth=1;
-        for(let i=1;i<6;i++){
-          ctx.beginPath();ctx.moveTo(i*CW_px/6,0);ctx.lineTo(i*CW_px/6,CH_px);ctx.stroke();
-          ctx.beginPath();ctx.moveTo(0,i*CH_px/5);ctx.lineTo(CW_px,i*CH_px/5);ctx.stroke();
+        ctx.strokeStyle='rgba(199,210,254,0.5)'; ctx.lineWidth=1;
+        for(let i=1;i<5;i++){
+          ctx.beginPath();ctx.moveTo(i*CW_px/5,0);ctx.lineTo(i*CW_px/5,CH_px);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(0,i*CH_px/4);ctx.lineTo(CW_px,i*CH_px/4);ctx.stroke();
         }
 
-        // Tracés par jour (pointillés)
-        (data.itineraire||[]).forEach(day=>{
-          const pts=(day.activites||[]).filter(a=>a.lat&&a.lng);
-          if(pts.length<2) return;
-          const col=dayColors[(day.jour-1)%dayColors.length];
-          ctx.strokeStyle=col; ctx.lineWidth=2.5;
-          ctx.setLineDash([6,4]);
+        // Tracé de la route
+        if(valid.length>=2){
+          ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.setLineDash([7,4]);
           ctx.beginPath();
-          pts.forEach((a,i)=>{ const x=toX(+a.lng),y2=toY(+a.lat); i===0?ctx.moveTo(x,y2):ctx.lineTo(x,y2); });
+          valid.forEach((p,i)=>{ const x=toX(+p.lng),y2=toY(+p.lat); i===0?ctx.moveTo(x,y2):ctx.lineTo(x,y2); });
           ctx.stroke(); ctx.setLineDash([]);
-        });
+        }
 
-        // Points
-        allPts.forEach(p=>{
-          const x=toX(p.lng), y2=toY(p.lat);
-          const col=p.type==='hotel'?'#1d4ed8':dayColors[(p.day-1)%dayColors.length];
-          // Halo blanc
-          ctx.beginPath(); ctx.arc(x,y2,8,0,Math.PI*2);
+        // Points + numéros
+        valid.forEach((p,i)=>{
+          const x=toX(+p.lng), y2=toY(+p.lat);
+          // Halo
+          ctx.beginPath(); ctx.arc(x,y2,10,0,Math.PI*2);
           ctx.fillStyle='white'; ctx.fill();
-          // Point coloré
-          ctx.beginPath(); ctx.arc(x,y2,5.5,0,Math.PI*2);
+          // Cercle couleur
+          ctx.beginPath(); ctx.arc(x,y2,8,0,Math.PI*2);
           ctx.fillStyle=col; ctx.fill();
+          // Numéro
+          ctx.fillStyle='white'; ctx.font='bold 10px Arial';
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(String(i+1),x,y2);
+          ctx.textAlign='left'; ctx.textBaseline='alphabetic';
         });
 
-        // Légende des jours
-        const days=[...new Set(allPts.filter(p=>p.day).map(p=>p.day))].sort((a,b)=>a-b);
-        let lx=10, ly=12;
-        days.forEach(d=>{
-          const col=dayColors[(d-1)%dayColors.length];
-          ctx.fillStyle=col; ctx.fillRect(lx,ly-8,12,10);
-          ctx.fillStyle='#1e293b'; ctx.font='bold 12px Arial';
-          ctx.fillText('Jour '+d, lx+16, ly); lx+=70;
-          if(lx>CW_px-80){lx=10;ly+=18;}
-        });
-
-        const mapImg=mc.toDataURL('image/jpeg',0.92);
-        const mapH=CW*CH_px/CW_px;
-        check(mapH+10);
-        sectionTitle('Carte du sejour');
-        doc.addImage(mapImg,'JPEG',M,y,CW,mapH);
-        y+=mapH+6;
-      }
+        return mc.toDataURL('image/jpeg',0.92);
+      };
 
       // ── ITINÉRAIRE ─────────────────────────────────────────
       sectionTitle('Itineraire jour par jour');
@@ -2008,6 +1995,16 @@
         doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...WH);
         doc.text(dLines, M+3, y+4);
         y+=dH+2;
+
+        // Mini-carte du jour
+        const dayPts=(day.activites||[]).filter(a=>a.lat&&a.lng);
+        const mapImg=drawDayMap(dayPts, dayColors[(day.jour-1)%dayColors.length]);
+        if(mapImg){
+          const mapH=CW*220/700;
+          check(mapH+4);
+          doc.addImage(mapImg,'JPEG',M,y,CW,mapH);
+          y+=mapH+4;
+        }
 
         (day.activites||[]).forEach(a => {
           check(14);
