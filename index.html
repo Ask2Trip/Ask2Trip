@@ -1836,183 +1836,244 @@
     if (btn) { btn.textContent = '⏳ Génération PDF...'; btn.disabled = true; }
 
     const doExport = () => {
+      const { jsPDF } = window.jspdf;
       const { destination, dateDebut, dateFin, voyageurs, budget } = params;
       const nbJours = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
-      const dateStr = new Date(dateDebut).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}) + ' – ' + new Date(dateFin).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+      const dateStr = new Date(dateDebut).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}) + ' - ' + new Date(dateFin).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
       const cp = data.conseils_pratiques || {};
       const be = data.budget_estime || {};
 
-      // Construire les sections
-      const daysHtml = (data.itineraire || []).map(day => `
-        <div class="p-day">
-          <div class="p-day-header">Jour ${day.jour} — ${day.date} &nbsp;|&nbsp; <em>${day.titre || ''}</em></div>
-          ${(day.activites || []).map(a => `
-            <div class="p-act">
-              <span class="p-time">${a.heure}</span>
-              <div class="p-act-body">
-                <strong>${a.activite}</strong>${a.duree ? ` <span class="p-small">(${a.duree})</span>` : ''}
-                ${a.description ? `<div class="p-desc">${a.description}</div>` : ''}
-                ${a.prix_estime ? `<div class="p-price">💰 ${a.prix_estime}</div>` : ''}
-              </div>
-            </div>`).join('')}
-        </div>`).join('');
+      // Nettoyer le texte (retirer emojis, garder accents)
+      const clean = (s) => (s||'').replace(/[\u{1F300}-\u{1FFFF}]/gu,'').replace(/[^\x00-\xFF]/g,'').trim();
 
-      const hotelsHtml = (data.hebergements || []).map(h => `
-        <div class="p-card">
-          <div class="p-card-row">
-            <strong>${h.nom}</strong>
-            <span class="p-green">${h.prix_nuit}/nuit</span>
-          </div>
-          <div class="p-gray">${'⭐'.repeat(h.etoiles||3)} · ${h.quartier||''}</div>
-          ${h.description ? `<div class="p-small-text">${h.description}</div>` : ''}
-        </div>`).join('');
+      const doc = new jsPDF('p','mm','a4');
+      const W=210, M=14, CW=W-2*M;
+      let y=0;
 
-      const restosHtml = (data.restaurants || []).map(r => `
-        <div class="p-card">
-          <strong>${r.nom}</strong> <span class="p-gray">${r.type} · ${r.prix||''} · ${r.quartier||''}</span>
-          ${r.specialite ? `<div class="p-brown">${r.specialite}</div>` : ''}
-          ${r.description ? `<div class="p-small-text">${r.description}</div>` : ''}
-        </div>`).join('');
+      // Couleurs
+      const P=[99,102,241], PL=[237,233,254], WH=[255,255,255];
+      const DK=[30,41,59], GR=[100,116,139], GN=[5,150,105], BD=[226,232,240];
 
-      const budgetRows = [['✈️ Vols',be.vols],['🏨 Hébergement',be.hebergement],['🎯 Activités',be.activites],['🍽️ Repas',be.repas],['🛍️ Divers',be.divers]]
-        .filter(([,v])=>v).map(([l,v])=>`<tr><td class="p-td">${l}</td><td class="p-td p-tr">${v}</td></tr>`).join('');
-      const budgetTotal = be.total_par_personne ? `<tr><td class="p-td-total">Total par personne</td><td class="p-td-total p-tr">${be.total_par_personne}</td></tr>` : '';
+      const newPage = () => { doc.addPage(); y=M; };
+      const check = (h=10) => { if(y+h>282) newPage(); };
 
-      const tipsHtml = [
-        cp.meteo && ['🌤️ Météo', cp.meteo],
-        cp.monnaie && ['💱 Monnaie', cp.monnaie],
-        cp.langue && ['🗣️ Langue', cp.langue],
-        cp.visa && ['🛂 Visa', cp.visa],
-        cp.meilleure_periode && ['📅 Meilleure période', cp.meilleure_periode],
-      ].filter(Boolean).map(([l,v])=>`<div class="p-tip"><div class="p-tip-label">${l}</div><div class="p-small-text">${v}</div></div>`).join('');
-
-      const conseilsHtml = (cp.conseils||[]).length ? `
-        <div class="p-conseils">
-          <div class="p-conseils-title">💡 Conseils essentiels</div>
-          ${cp.conseils.map(c=>`<div class="p-conseil">• ${c}</div>`).join('')}
-        </div>` : '';
-
-      // HTML complet avec styles dans <style> (pas d'inline — html2canvas les résout bien)
-      const fullHtml = `
-        <style>
-          * { box-sizing:border-box; margin:0; padding:0; }
-          .p-wrap { font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#1e293b; background:white; width:794px; }
-          .p-cover { background:#6366f1; padding:40px 32px 32px; }
-          .p-cover-sub { color:rgba(255,255,255,0.8); font-size:11px; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
-          .p-cover-title { color:white; font-size:28px; font-weight:800; margin-bottom:16px; }
-          .p-cover-tags { display:flex; gap:12px; flex-wrap:wrap; }
-          .p-cover-tag { background:rgba(255,255,255,0.2); color:white; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; }
-          .p-body { padding:20px 28px; }
-          .p-resume { background:#ede9fe; border-left:4px solid #6366f1; padding:12px 16px; margin-bottom:20px; font-style:italic; color:#4c1d95; font-size:13px; line-height:1.5; border-radius:0 8px 8px 0; }
-          .p-section-title { font-size:15px; font-weight:800; color:#6366f1; border-bottom:2px solid #ede9fe; padding-bottom:6px; margin:20px 0 12px; }
-          .p-day { margin-bottom:16px; }
-          .p-day-header { background:#6366f1; color:white; padding:7px 12px; border-radius:6px; font-weight:700; font-size:12px; margin-bottom:6px; }
-          .p-day-header em { font-weight:400; }
-          .p-act { display:flex; gap:10px; padding:6px 0; border-bottom:1px solid #f1f5f9; }
-          .p-time { font-weight:700; color:#6366f1; min-width:46px; font-size:11px; padding-top:2px; }
-          .p-act-body { flex:1; }
-          .p-desc { color:#64748b; font-size:11px; margin-top:2px; line-height:1.4; }
-          .p-price { color:#059669; font-size:10px; margin-top:2px; }
-          .p-small { color:#94a3b8; font-size:10px; }
-          .p-card { padding:10px 14px; margin-bottom:8px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; }
-          .p-card-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
-          .p-green { color:#059669; font-weight:700; font-size:12px; }
-          .p-gray { color:#64748b; font-size:11px; }
-          .p-brown { color:#b45309; font-size:11px; font-style:italic; margin-top:2px; }
-          .p-small-text { color:#475569; font-size:11px; margin-top:3px; line-height:1.4; }
-          .p-budget-table { width:100%; border-collapse:collapse; }
-          .p-td { padding:7px 10px; border-bottom:1px solid #e2e8f0; font-size:12px; }
-          .p-td-total { padding:9px 10px; font-weight:800; background:#ede9fe; color:#6366f1; font-size:12px; }
-          .p-tr { text-align:right; }
-          .p-tips { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
-          .p-tip { padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
-          .p-tip-label { font-weight:700; color:#6366f1; font-size:11px; margin-bottom:3px; }
-          .p-conseils { padding:10px 14px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-top:8px; }
-          .p-conseils-title { font-weight:700; color:#166534; font-size:11px; margin-bottom:5px; }
-          .p-conseil { color:#15803d; font-size:11px; margin-bottom:2px; }
-          .p-footer { text-align:center; font-size:10px; color:#94a3b8; padding:16px 0 6px; border-top:1px solid #e2e8f0; margin-top:24px; }
-        </style>
-        <div class="p-wrap">
-          <div class="p-cover">
-            <div class="p-cover-sub">Itinéraire personnalisé • Ask2Trip</div>
-            <div class="p-cover-title">🌍 ${destination}</div>
-            <div class="p-cover-tags">
-              <span class="p-cover-tag">📅 ${dateStr}</span>
-              <span class="p-cover-tag">🕐 ${nbJours} jours</span>
-              <span class="p-cover-tag">👥 ${voyageurs} voyageur${voyageurs>1?'s':''}</span>
-              <span class="p-cover-tag">💰 ${budget}€</span>
-            </div>
-          </div>
-          <div class="p-body">
-            ${data.resume ? `<div class="p-resume">${data.resume}</div>` : ''}
-
-            <div class="p-section-title">🗓️ Itinéraire jour par jour</div>
-            ${daysHtml}
-
-            ${hotelsHtml ? `<div class="p-section-title">🏨 Hébergements recommandés</div>${hotelsHtml}` : ''}
-            ${restosHtml ? `<div class="p-section-title">🍽️ Restaurants incontournables</div>${restosHtml}` : ''}
-
-            ${budgetRows ? `<div class="p-section-title">💰 Budget estimé</div>
-              <table class="p-budget-table">${budgetRows}${budgetTotal}</table>` : ''}
-
-            ${tipsHtml ? `<div class="p-section-title">📋 Infos pratiques</div>
-              <div class="p-tips">${tipsHtml}</div>${conseilsHtml}` : ''}
-
-            <div class="p-footer">Généré par <strong>Ask2Trip</strong> — ask2trip.vercel.app · ${new Date().toLocaleDateString('fr-FR')}</div>
-          </div>
-        </div>`;
-
-      // Overlay blanc qui masque visuellement le contenu PDF pendant la capture
-      const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:white;z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
-      overlay.innerHTML = '<div style="font-family:Arial;font-size:18px;font-weight:700;color:#6366f1;">📄 Génération du PDF...</div><div style="font-family:Arial;font-size:13px;color:#94a3b8;">Quelques secondes</div>';
-      document.body.appendChild(overlay);
-
-      // Conteneur rendu visible (couvert par overlay) — html2canvas le capture correctement
-      const container = document.createElement('div');
-      container.style.cssText = 'position:fixed;top:0;left:0;z-index:9997;width:794px;background:white;';
-      container.innerHTML = fullHtml;
-      document.body.appendChild(container);
-
-      const cleanup = () => {
-        if (document.body.contains(container)) document.body.removeChild(container);
-        if (document.body.contains(overlay)) document.body.removeChild(overlay);
+      const txt = (s,x,sz,col,maxW,bold,italic) => {
+        if(!s) return 0;
+        doc.setFontSize(sz);
+        doc.setTextColor(...col);
+        doc.setFont('helvetica', bold?'bold':italic?'italic':'normal');
+        const lines = doc.splitTextToSize(clean(s), maxW||CW);
+        doc.text(lines, x, y);
+        const h = lines.length*(sz*0.352)+1;
+        y+=h; return h;
       };
 
-      const filename = 'itineraire-' + destination.toLowerCase().replace(/[^a-z0-9]/g, '-') + '.pdf';
+      const hline = (col=BD) => { doc.setDrawColor(...col); doc.line(M,y,W-M,y); y+=1; };
 
-      // Laisser le DOM se rendre avant de capturer
-      setTimeout(() => {
-        html2pdf().set({
-          margin: [8, 8, 8, 8],
-          filename,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', width: 794 },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(container.firstElementChild).save().then(() => {
-          cleanup();
-          if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
-        }).catch(err => {
-          cleanup();
-          if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
-          console.error(err);
-          alert('Erreur PDF : ' + err.message);
+      const sectionTitle = (label) => {
+        check(14);
+        y+=4;
+        doc.setFillColor(...PL);
+        doc.rect(M,y-4,CW,10,'F');
+        doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...P);
+        doc.text(label, M+3, y+2);
+        y+=9; hline(PL);
+      };
+
+      // ── COVER ──────────────────────────────────────────────
+      doc.setFillColor(...P);
+      doc.rect(0,0,W,70,'F');
+      y=18;
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...WH);
+      doc.text('ITINERAIRE PERSONNALISE - ASK2TRIP', M, y); y+=9;
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(24); doc.setTextColor(...WH);
+      doc.text('Voyage a '+clean(destination), M, y); y+=10;
+
+      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(220,220,255);
+      doc.text(dateStr+' | '+nbJours+' jours | '+voyageurs+' voyageur(s) | Budget: '+budget+'EUR', M, y, {maxWidth:CW}); y+=10;
+
+      // Tags sur fond violet clair
+      const tags = [nbJours+' jours', voyageurs+' voyageur(s)', budget+'EUR de budget'];
+      let tx=M; y+=4;
+      tags.forEach(tag => {
+        doc.setFillColor(120,124,255);
+        doc.roundedRect(tx, y-3, doc.getTextWidth(tag)+8, 6, 2, 2, 'F');
+        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...WH);
+        doc.text(tag, tx+4, y+0.5);
+        tx += doc.getTextWidth(tag)+14;
+      });
+      y=80;
+
+      // ── RESUME ─────────────────────────────────────────────
+      if(data.resume) {
+        doc.setFillColor(...PL);
+        const rLines = doc.splitTextToSize(clean(data.resume), CW-8);
+        const rH = rLines.length*4.5+6;
+        doc.rect(M,y,CW,rH,'F');
+        doc.setFillColor(...P); doc.rect(M,y,3,rH,'F');
+        doc.setFont('helvetica','italic'); doc.setFontSize(10); doc.setTextColor(76,29,149);
+        doc.text(rLines, M+6, y+5);
+        y+=rH+6;
+      }
+
+      // ── ITINÉRAIRE ─────────────────────────────────────────
+      sectionTitle('Itineraire jour par jour');
+
+      (data.itineraire||[]).forEach(day => {
+        check(18);
+        // En-tête du jour
+        const dayText = 'Jour '+day.jour+' - '+clean(day.date||'')+' | '+clean(day.titre||'');
+        const dLines = doc.splitTextToSize(dayText, CW-6);
+        const dH = dLines.length*4.5+4;
+        doc.setFillColor(...P);
+        doc.rect(M,y,CW,dH,'F');
+        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...WH);
+        doc.text(dLines, M+3, y+4);
+        y+=dH+2;
+
+        (day.activites||[]).forEach(a => {
+          check(14);
+          // Heure
+          doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...P);
+          doc.text(a.heure||'', M, y+3);
+          // Nom activité
+          doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...DK);
+          const aLines = doc.splitTextToSize(clean(a.activite), CW-18);
+          doc.text(aLines, M+15, y+3);
+          y+=aLines.length*4+2;
+          // Description
+          if(a.description) {
+            check(8); y+=1;
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
+            const dscLines = doc.splitTextToSize(clean(a.description), CW-15);
+            doc.text(dscLines, M+15, y);
+            y+=dscLines.length*3.5+1;
+          }
+          // Prix
+          if(a.prix_estime) {
+            doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...GN);
+            doc.text(clean(a.prix_estime), M+15, y); y+=4;
+          }
+          doc.setDrawColor(...BD); doc.line(M+15,y,W-M,y); y+=3;
         });
-      }, 300);
+        y+=3;
+      });
+
+      // ── HÉBERGEMENTS ───────────────────────────────────────
+      if((data.hebergements||[]).length) {
+        sectionTitle('Hebergements recommandes');
+        (data.hebergements||[]).forEach(h => {
+          check(20);
+          doc.setFillColor(248,250,252);
+          doc.rect(M,y,CW,18,'F');
+          doc.setDrawColor(...BD); doc.rect(M,y,CW,18);
+          doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...DK);
+          doc.text(clean(h.nom), M+3, y+5);
+          if(h.prix_nuit) { doc.setTextColor(...GN); doc.text(h.prix_nuit+'/nuit', W-M-3, y+5, {align:'right'}); }
+          doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...GR);
+          doc.text('***'+(h.etoiles>3?'*'.repeat(h.etoiles-3):'')+' - '+clean(h.quartier||''), M+3, y+10);
+          if(h.description) {
+            doc.setFontSize(8); doc.setTextColor(71,85,105);
+            const d2=doc.splitTextToSize(clean(h.description),CW-6);
+            doc.text(d2.slice(0,2), M+3, y+14);
+          }
+          y+=22;
+        });
+      }
+
+      // ── RESTAURANTS ────────────────────────────────────────
+      if((data.restaurants||[]).length) {
+        sectionTitle('Restaurants incontournables');
+        (data.restaurants||[]).forEach(r => {
+          check(18);
+          doc.setFillColor(248,250,252);
+          doc.rect(M,y,CW,16,'F');
+          doc.setDrawColor(...BD); doc.rect(M,y,CW,16);
+          doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...DK);
+          doc.text(clean(r.nom), M+3, y+5);
+          doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
+          doc.text([clean(r.type),r.prix||'',clean(r.quartier||'')].filter(Boolean).join(' - '), M+3, y+10);
+          if(r.specialite) { doc.setTextColor(180,83,9); doc.setFont('helvetica','italic'); doc.text(clean(r.specialite), M+3, y+14); }
+          y+=19;
+        });
+      }
+
+      // ── BUDGET ─────────────────────────────────────────────
+      const beRows=[['Vols',be.vols],['Hebergement',be.hebergement],['Activites',be.activites],['Repas',be.repas],['Divers',be.divers]].filter(([,v])=>v);
+      if(beRows.length||be.total_par_personne) {
+        sectionTitle('Budget estime');
+        beRows.forEach(([l,v]) => {
+          check(9);
+          doc.setFillColor(248,250,252); doc.rect(M,y,CW,8,'F');
+          doc.setDrawColor(...BD); doc.line(M,y+8,W-M,y+8);
+          doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...DK);
+          doc.text(l, M+3, y+5.5);
+          doc.text(clean(v), W-M-3, y+5.5, {align:'right'});
+          y+=8;
+        });
+        if(be.total_par_personne) {
+          check(10);
+          doc.setFillColor(...PL); doc.rect(M,y,CW,9,'F');
+          doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...P);
+          doc.text('Total par personne', M+3, y+6);
+          doc.text(clean(be.total_par_personne), W-M-3, y+6, {align:'right'});
+          y+=12;
+        }
+      }
+
+      // ── INFOS PRATIQUES ────────────────────────────────────
+      const tips=[['Meteo',cp.meteo],['Monnaie',cp.monnaie],['Langue',cp.langue],['Visa',cp.visa]].filter(([,v])=>v);
+      if(tips.length) {
+        sectionTitle('Infos pratiques');
+        tips.forEach(([l,v]) => {
+          const vLines=doc.splitTextToSize(clean(v),CW/2-8);
+          const tH=vLines.length*4+8;
+          check(tH);
+          doc.setFillColor(248,250,252); doc.rect(M,y,CW/2-4,tH,'F');
+          doc.setDrawColor(...BD); doc.rect(M,y,CW/2-4,tH);
+          doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...P);
+          doc.text(l, M+3, y+5);
+          doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(71,85,105);
+          doc.text(vLines, M+3, y+10);
+          y+=tH+3;
+        });
+        if((cp.conseils||[]).length) {
+          check(20); y+=2;
+          doc.setFillColor(240,253,244); doc.rect(M,y,CW,8+(cp.conseils.length*4),'F');
+          doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(22,101,52);
+          doc.text('Conseils essentiels', M+3, y+5); y+=7;
+          cp.conseils.forEach(c => {
+            check(6);
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(21,128,61);
+            doc.text('- '+clean(c), M+3, y); y+=4.5;
+          });
+        }
+      }
+
+      // ── FOOTER ─────────────────────────────────────────────
+      check(12); y+=3;
+      doc.setDrawColor(...BD); doc.line(M,y,W-M,y); y+=5;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
+      doc.text('Genere par Ask2Trip - ask2trip.vercel.app - '+new Date().toLocaleDateString('fr-FR'), W/2, y, {align:'center'});
+
+      // Téléchargement
+      const filename='itineraire-'+clean(destination).toLowerCase().replace(/[^a-z0-9]/g,'-')+'.pdf';
+      doc.save(filename);
+      if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
     };
 
-    if (!window.html2pdf) {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js';
-      script.onload = doExport;
-      script.onerror = () => {
-        if (btn) { btn.innerHTML = '📄 Exporter PDF'; btn.disabled = false; }
-        alert('Impossible de charger la bibliothèque PDF. Vérifie ta connexion.');
+    // Charger jsPDF depuis cdnjs (disponible sans restriction)
+    if(!window.jspdf) {
+      const script=document.createElement('script');
+      script.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.onload=doExport;
+      script.onerror=()=>{
+        if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
+        alert('Impossible de charger jsPDF. Vérifie ta connexion.');
       };
       document.head.appendChild(script);
-    } else {
-      doExport();
-    }
+    } else { doExport(); }
   }
 
   async function verifyLicense() {
