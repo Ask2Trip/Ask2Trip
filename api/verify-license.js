@@ -9,26 +9,29 @@ module.exports = async function handler(req, res) {
     const { license_key } = req.body || {};
     if (!license_key) return res.status(200).json({ valid: false, error: 'Clé manquante' });
 
-    // Gumroad requiert product_id (base64) pour ce produit
-    const productId = process.env.GUMROAD_PRODUCT_ID;
-    if (!productId) return res.status(200).json({ valid: false, error: 'Produit non configuré (contacter le support)' });
+    const apiKey = process.env.LEMONSQUEEZY_API_KEY;
+    if (!apiKey) return res.status(200).json({ valid: false, error: 'Produit non configuré (contacter le support)' });
 
-    const gumRes = await fetch('https://api.gumroad.com/v2/licenses/verify', {
+    const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ product_id: productId, license_key: license_key.trim() }).toString()
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: new URLSearchParams({ license_key: license_key.trim() }).toString()
     });
 
-    const text = await gumRes.text();
+    const text = await lsRes.text();
     let data;
     try { data = JSON.parse(text); } catch (e) {
       return res.status(200).json({ valid: false, error: '[Parse error] ' + text.slice(0, 150) });
     }
 
-    if (data.success) {
+    if (data.valid) {
       return res.status(200).json({ valid: true });
     } else {
-      return res.status(200).json({ valid: false, error: data.message || 'Clé invalide' });
+      return res.status(200).json({ valid: false, error: data.error || 'Clé invalide' });
     }
   } catch (err) {
     console.error('License verify error:', err.message);
