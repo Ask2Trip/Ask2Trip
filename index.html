@@ -1927,6 +1927,8 @@
         if(valid.length<2) return null;
 
         const CW_px=700, CH_px=220;
+        const TILE_SZ=256; // tiles OSM sont toujours 256×256
+
         const lats=valid.map(p=>+p.lat), lngs=valid.map(p=>+p.lng);
         let minLat=Math.min(...lats), maxLat=Math.max(...lats);
         let minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
@@ -1936,12 +1938,12 @@
         const diff=Math.max(latDiff,lngDiff);
         const zoom = diff<0.01?15 : diff<0.05?14 : diff<0.2?13 : diff<0.5?12 : diff<2?11 : 10;
 
-        // Padding de 30% autour des points
-        const padLat=latDiff*0.35, padLng=lngDiff*0.35;
+        // Padding autour des points
+        const padLat=latDiff*0.4, padLng=lngDiff*0.4;
         minLat-=padLat; maxLat+=padLat;
         minLng-=padLng; maxLng+=padLng;
 
-        // Conversion lat/lng <-> coordonnées tile OSM
+        // Conversion lat/lng -> coordonnées tile flottantes
         const lng2tF=(lng,z)=>(lng+180)/360*Math.pow(2,z);
         const lat2tF=(lat,z)=>{
           const r=lat*Math.PI/180;
@@ -1950,34 +1952,29 @@
 
         const txMin=Math.floor(lng2tF(minLng,zoom));
         const txMax=Math.floor(lng2tF(maxLng,zoom));
-        const tyMin=Math.floor(lat2tF(maxLat,zoom)); // lat inversée
+        const tyMin=Math.floor(lat2tF(maxLat,zoom));
         const tyMax=Math.floor(lat2tF(minLat,zoom));
-
         const tilesW=txMax-txMin+1, tilesH=tyMax-tyMin+1;
-        const pxPerTileW=CW_px/tilesW, pxPerTileH=CH_px/tilesH;
 
-        // Conversion lat/lng -> pixel canvas
-        const lngToX=lng=>(lng2tF(lng,zoom)-txMin)*pxPerTileW;
-        const latToY=lat=>(lat2tF(lat,zoom)-tyMin)*pxPerTileH;
+        // Canvas intermédiaire à résolution native (tiles carrées 256×256)
+        const naturalW=tilesW*TILE_SZ, naturalH=tilesH*TILE_SZ;
+        const big=document.createElement('canvas');
+        big.width=naturalW; big.height=naturalH;
+        const bctx=big.getContext('2d');
 
-        const mc=document.createElement('canvas');
-        mc.width=CW_px; mc.height=CH_px;
-        const ctx=mc.getContext('2d');
+        // Fond de secours
+        bctx.fillStyle='#e8edf4'; bctx.fillRect(0,0,naturalW,naturalH);
 
-        // Fond de secours si tiles échouent
-        ctx.fillStyle='#e8edf4'; ctx.fillRect(0,0,CW_px,CH_px);
-
-        // Charger les tuiles OSM en parallèle
+        // Charger les tuiles OSM en parallèle (carrées, pas étirées)
         const tileProms=[];
         for(let tx=txMin;tx<=txMax;tx++){
           for(let ty=tyMin;ty<=tyMax;ty++){
-            const px=(tx-txMin)*pxPerTileW, py=(ty-tyMin)*pxPerTileH;
+            const px=(tx-txMin)*TILE_SZ, py=(ty-tyMin)*TILE_SZ;
             tileProms.push(new Promise(res=>{
               const img=new Image();
               img.crossOrigin='anonymous';
-              img.onload=()=>{ ctx.drawImage(img,px,py,pxPerTileW,pxPerTileH); res(); };
+              img.onload=()=>{ bctx.drawImage(img,px,py,TILE_SZ,TILE_SZ); res(); };
               img.onerror=()=>res();
-              // Alterner entre sous-domaines a/b/c pour respecter la politique OSM
               const sub=['a','b','c'][(tx+ty)%3];
               img.src=`https://${sub}.tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
             }));
@@ -1985,40 +1982,50 @@
         }
         await Promise.all(tileProms);
 
-        // Légère couche semi-transparente pour faire ressortir les marqueurs
-        ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(0,0,CW_px,CH_px);
+        // Conversion lat/lng -> pixels sur le grand canvas natif
+        const lngToX=lng=>(lng2tF(lng,zoom)-txMin)*TILE_SZ;
+        const latToY=lat=>(lat2tF(lat,zoom)-tyMin)*TILE_SZ;
+
+        // Légère couche pour faire ressortir les marqueurs
+        bctx.fillStyle='rgba(255,255,255,0.12)'; bctx.fillRect(0,0,naturalW,naturalH);
 
         // Tracé de la route
         if(valid.length>=2){
-          ctx.strokeStyle=col; ctx.lineWidth=3; ctx.setLineDash([8,5]);
-          ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=3;
-          ctx.beginPath();
-          valid.forEach((p,i)=>{ const x=lngToX(+p.lng),y2=latToY(+p.lat); i===0?ctx.moveTo(x,y2):ctx.lineTo(x,y2); });
-          ctx.stroke(); ctx.setLineDash([]); ctx.shadowBlur=0;
+          bctx.strokeStyle=col; bctx.lineWidth=4; bctx.setLineDash([10,6]);
+          bctx.shadowColor='rgba(0,0,0,0.4)'; bctx.shadowBlur=4;
+          bctx.beginPath();
+          valid.forEach((p,i)=>{ const x=lngToX(+p.lng),y2=latToY(+p.lat); i===0?bctx.moveTo(x,y2):bctx.lineTo(x,y2); });
+          bctx.stroke(); bctx.setLineDash([]); bctx.shadowBlur=0;
         }
 
         // Marqueurs numérotés
         valid.forEach((p,i)=>{
           const x=lngToX(+p.lng), y2=latToY(+p.lat);
-          // Ombre
-          ctx.beginPath(); ctx.arc(x+1,y2+1,11,0,Math.PI*2);
-          ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fill();
-          // Halo blanc
-          ctx.beginPath(); ctx.arc(x,y2,11,0,Math.PI*2);
-          ctx.fillStyle='white'; ctx.fill();
-          // Cercle couleur
-          ctx.beginPath(); ctx.arc(x,y2,9,0,Math.PI*2);
-          ctx.fillStyle=col; ctx.fill();
-          // Numéro
-          ctx.fillStyle='white'; ctx.font='bold 11px Arial';
-          ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText(String(i+1),x,y2);
-          ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+          bctx.beginPath(); bctx.arc(x+1.5,y2+1.5,14,0,Math.PI*2);
+          bctx.fillStyle='rgba(0,0,0,0.25)'; bctx.fill();
+          bctx.beginPath(); bctx.arc(x,y2,14,0,Math.PI*2);
+          bctx.fillStyle='white'; bctx.fill();
+          bctx.beginPath(); bctx.arc(x,y2,11,0,Math.PI*2);
+          bctx.fillStyle=col; bctx.fill();
+          bctx.fillStyle='white'; bctx.font='bold 13px Arial';
+          bctx.textAlign='center'; bctx.textBaseline='middle';
+          bctx.fillText(String(i+1),x,y2);
+          bctx.textAlign='left'; bctx.textBaseline='alphabetic';
         });
 
-        // Attribution OSM (obligatoire)
+        // Canvas final 700×220 — scale "cover" (remplir sans étirer)
+        const mc=document.createElement('canvas');
+        mc.width=CW_px; mc.height=CH_px;
+        const ctx=mc.getContext('2d');
+
+        const scale=Math.max(CW_px/naturalW, CH_px/naturalH);
+        const sw=naturalW*scale, sh=naturalH*scale;
+        const ox=(CW_px-sw)/2, oy=(CH_px-sh)/2;
+        ctx.drawImage(big,ox,oy,sw,sh);
+
+        // Attribution OSM
         ctx.fillStyle='rgba(255,255,255,0.75)';
-        ctx.fillRect(CW_px-175,CH_px-15,175,15);
+        ctx.fillRect(CW_px-178,CH_px-16,178,16);
         ctx.fillStyle='#444'; ctx.font='8px Arial';
         ctx.textAlign='right';
         ctx.fillText('© OpenStreetMap contributors',CW_px-3,CH_px-4);
