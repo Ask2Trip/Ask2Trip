@@ -71,7 +71,6 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
           "description": "Description détaillée et pratique (2-3 phrases)",
           "duree": "2h",
           "prix_estime": "15€/pers",
-          "lien_booking": "https://www.getyourguide.fr/destination/activities/?partner_id=YOUR_PARTNER_ID",
           "lat": 35.6762,
           "lng": 139.6503
         }
@@ -146,7 +145,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     }
   },
   "budget_estime": {
-    "vols": "XXX€",
+    "trajet": "XXX€ (coût du transport aller-retour, quel que soit le mode : avion, train ou voiture - utilise le mode recommandé dans la section transport)",
     "hebergement": "XXX€",
     "activites": "XXX€",
     "repas": "XXX€",

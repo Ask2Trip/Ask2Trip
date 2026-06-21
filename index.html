@@ -1433,16 +1433,12 @@
   }
 
   function isBookableActivity(act) {
-    // Source de vérité principale : l'IA remplit mot_cle_recherche UNIQUEMENT si l'activité
-    // est réellement réservable (elle sait distinguer "Dîner libre" de "Dîner croisière Seine").
-    if (act && act.mot_cle_recherche && act.mot_cle_recherche.trim()) return true;
-    if (act && 'mot_cle_recherche' in act) return false; // l'IA a explicitement dit "non réservable"
-
-    // Fallback (anciennes générations sans le champ) : exclusion par mots-clés génériques.
     const skip = ['vol ', 'vols ', 'flight', 'transfert', 'trajet', 'transport', 'check-in', 'check in',
       'check-out', 'check out', 'installation', 'arrivée', 'départ', 'retour à', 'prise en charge',
       'navette', 'taxi', 'ferry', 'train ', 'bus ', 'aéroport', 'embarquement', 'débarquement',
-      'hébergement', 'hôtel', 'repos', 'temps libre', 'nuit à', 'soirée libre', 'fin du voyage'];
+      'hébergement', 'hôtel', 'repos', 'temps libre', 'nuit à', 'soirée libre', 'fin du voyage',
+      'déjeuner', 'dîner', 'diner', 'petit-déjeuner', 'petit déjeuner', 'brunch', 'pique-nique',
+      'pause', 'café', 'restaurant', 'snack', 'apéritif', 'collation'];
     const n = ((act && act.activite) || '').toLowerCase();
     return !skip.some(kw => n.includes(kw));
   }
@@ -1457,16 +1453,18 @@
     return `https://www.booking.com/search.html?ss=${q}&lang=fr`;
   }
 
-  function gygLink(keyword, activityName, destination) {
-    // Priorité au mot-clé court généré par l'IA (meilleurs résultats de recherche).
-    // Fallback : 2 premiers mots du nom de l'activité si pas de mot-clé.
-    const base = (keyword && keyword.trim())
-      ? keyword.trim()
-      : (activityName || '').split(' ').slice(0, 2).join(' ');
-    // Ne garde que le nom de ville (premier segment avant une virgule) pour éviter
-    // une query trop longue type "Val d'Europe Disneyland Paris".
+  function gygLink(activityName, destination) {
+    // Extraction déterministe de mots-clés (pas de dépendance à un champ IA peu fiable) :
+    // on retire les mots vides et la ponctuation, on garde les 4 mots significatifs + la ville.
+    const stopwords = ['à','a','de','du','des','le','la','les','un','une','et','ou','dans','au','aux',
+      'sur','en','avec','pour','sans','ce','cette','ces','son','sa','ses','votre','vos','les','d','l'];
+    const words = (activityName || '')
+      .replace(/[^\p{L}\s'-]/gu, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !stopwords.includes(w.toLowerCase()));
+    const keyword = words.slice(0, 4).join(' ') || (activityName || '');
     const city = (destination || '').split(',')[0].trim();
-    const q = encodeURIComponent(`${base} ${city}`.trim());
+    const q = encodeURIComponent(`${keyword} ${city}`.trim());
     return `https://www.getyourguide.fr/s/?q=${q}&partner_id=SBFA8QU`;
   }
 
@@ -1622,7 +1620,7 @@
                     ${act.duree ? `<span class="activity-tag">⏱️ ${act.duree}</span>` : ''}
                     ${act.prix_estime ? `<span class="activity-tag">💶 ${act.prix_estime}</span>` : ''}
                   </div>
-                  ${isBookableActivity(act) ? `<a href="${gygLink(act.mot_cle_recherche, act.activite, destination)}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>` : ''}
+                  ${isBookableActivity(act) ? `<a href="${gygLink(act.activite, destination)}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>` : ''}
                 </div>
               </div>
             `).join('')}
@@ -1747,7 +1745,7 @@
           <div class="chart-legend" id="budgetLegend"></div>
         </div>
         <div class="budget-grid">
-          <div class="budget-item"><div class="budget-icon">✈️</div><div class="budget-label">Vols</div><div class="budget-amount">${(data.budget_estime || {}).vols || '—'}</div></div>
+          <div class="budget-item"><div class="budget-icon">🧭</div><div class="budget-label">Trajet</div><div class="budget-amount">${(data.budget_estime || {}).trajet || '—'}</div></div>
           <div class="budget-item"><div class="budget-icon">🏨</div><div class="budget-label">Hébergement</div><div class="budget-amount">${(data.budget_estime || {}).hebergement || '—'}</div></div>
           <div class="budget-item"><div class="budget-icon">🎯</div><div class="budget-label">Activités</div><div class="budget-amount">${(data.budget_estime || {}).activites || '—'}</div></div>
           <div class="budget-item"><div class="budget-icon">🍽️</div><div class="budget-label">Repas</div><div class="budget-amount">${(data.budget_estime || {}).repas || '—'}</div></div>
@@ -1789,9 +1787,9 @@
 
   function buildBudgetChart(budgetEstime) {
     const colors = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444'];
-    const labels = ['Vols','Hébergement','Activités','Repas','Divers'];
-    const keys   = ['vols','hebergement','activites','repas','divers'];
-    const icons  = ['✈️','🏨','🎯','🍽️','🛍️'];
+    const labels = ['Trajet','Hébergement','Activités','Repas','Divers'];
+    const keys   = ['trajet','hebergement','activites','repas','divers'];
+    const icons  = ['🧭','🏨','🎯','🍽️','🛍️'];
 
     const values = keys.map(k => {
       const raw = (budgetEstime || {})[k] || '0';
@@ -2200,7 +2198,7 @@
       }
 
       // ── BUDGET ─────────────────────────────────────────────
-      const beRows=[['Vols',be.vols],['Hebergement',be.hebergement],['Activites',be.activites],['Repas',be.repas],['Divers',be.divers]].filter(([,v])=>v);
+      const beRows=[['Trajet',be.trajet],['Hebergement',be.hebergement],['Activites',be.activites],['Repas',be.repas],['Divers',be.divers]].filter(([,v])=>v);
       if(beRows.length||be.total_par_personne) {
         sectionTitle('Budget estime');
         beRows.forEach(([l,v]) => {
