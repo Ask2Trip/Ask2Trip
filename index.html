@@ -1432,12 +1432,18 @@
     }
   }
 
-  function isBookableActivity(name) {
+  function isBookableActivity(act) {
+    // Source de vérité principale : l'IA remplit mot_cle_recherche UNIQUEMENT si l'activité
+    // est réellement réservable (elle sait distinguer "Dîner libre" de "Dîner croisière Seine").
+    if (act && act.mot_cle_recherche && act.mot_cle_recherche.trim()) return true;
+    if (act && 'mot_cle_recherche' in act) return false; // l'IA a explicitement dit "non réservable"
+
+    // Fallback (anciennes générations sans le champ) : exclusion par mots-clés génériques.
     const skip = ['vol ', 'vols ', 'flight', 'transfert', 'trajet', 'transport', 'check-in', 'check in',
       'check-out', 'check out', 'installation', 'arrivée', 'départ', 'retour à', 'prise en charge',
       'navette', 'taxi', 'ferry', 'train ', 'bus ', 'aéroport', 'embarquement', 'débarquement',
       'hébergement', 'hôtel', 'repos', 'temps libre', 'nuit à', 'soirée libre', 'fin du voyage'];
-    const n = (name || '').toLowerCase();
+    const n = ((act && act.activite) || '').toLowerCase();
     return !skip.some(kw => n.includes(kw));
   }
 
@@ -1451,8 +1457,16 @@
     return `https://www.booking.com/search.html?ss=${q}&lang=fr`;
   }
 
-  function gygLink(activityName, destination) {
-    const q = encodeURIComponent((activityName || '') + ' ' + (destination || ''));
+  function gygLink(keyword, activityName, destination) {
+    // Priorité au mot-clé court généré par l'IA (meilleurs résultats de recherche).
+    // Fallback : 2 premiers mots du nom de l'activité si pas de mot-clé.
+    const base = (keyword && keyword.trim())
+      ? keyword.trim()
+      : (activityName || '').split(' ').slice(0, 2).join(' ');
+    // Ne garde que le nom de ville (premier segment avant une virgule) pour éviter
+    // une query trop longue type "Val d'Europe Disneyland Paris".
+    const city = (destination || '').split(',')[0].trim();
+    const q = encodeURIComponent(`${base} ${city}`.trim());
     return `https://www.getyourguide.fr/s/?q=${q}&partner_id=SBFA8QU`;
   }
 
@@ -1608,7 +1622,7 @@
                     ${act.duree ? `<span class="activity-tag">⏱️ ${act.duree}</span>` : ''}
                     ${act.prix_estime ? `<span class="activity-tag">💶 ${act.prix_estime}</span>` : ''}
                   </div>
-                  ${isBookableActivity(act.activite) ? `<a href="${gygLink(act.activite, destination)}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>` : ''}
+                  ${isBookableActivity(act) ? `<a href="${gygLink(act.mot_cle_recherche, act.activite, destination)}" target="_blank" class="btn-link">🎟️ Réserver cette activité →</a>` : ''}
                 </div>
               </div>
             `).join('')}
