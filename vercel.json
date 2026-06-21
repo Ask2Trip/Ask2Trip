@@ -7,7 +7,11 @@
     { "src": "favicon.ico", "use": "@vercel/static" },
     { "src": "favicon-32.png", "use": "@vercel/static" },
     { "src": "favicon-192.png", "use": "@vercel/static" },
-    { "src": "favicon-512.png", "use": "@vercel/static" }
+    { "src": "favicon-512.png", "use": "@vercel/static" },
+    { "src": "mentions-legales.html", "use": "@vercel/static" },
+    { "src": "cgu.html", "use": "@vercel/static" },
+    { "src": "confidentialite.html", "use": "@vercel/static" },
+    { "src": "cookies.html", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/generate", "dest": "/api/generate.js" },
@@ -16,6 +20,10 @@
     { "src": "/favicon-32.png", "dest": "/favicon-32.png" },
     { "src": "/favicon-192.png", "dest": "/favicon-192.png" },
     { "src": "/favicon-512.png", "dest": "/favicon-512.png" },
+    { "src": "/mentions-legales.html", "dest": "/mentions-legales.html" },
+    { "src": "/cgu.html", "dest": "/cgu.html" },
+    { "src": "/confidentialite.html", "dest": "/confidentialite.html" },
+    { "src": "/cookies.html", "dest": "/cookies.html" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

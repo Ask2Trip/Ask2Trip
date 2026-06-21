@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Politique de confidentialité — Ask2Trip</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;color:#1e293b;line-height:1.7;background:#f8fafc;}
+  .header{background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 20px;color:white;}
+  .header a{color:white;text-decoration:none;font-weight:700;font-size:15px;opacity:.9;}
+  .header h1{margin-top:12px;font-size:26px;font-weight:800;}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 20px 80px;}
+  h2{font-size:20px;font-weight:700;margin:32px 0 12px;color:#4338ca;}
+  p,li{font-size:15px;color:#334155;margin-bottom:10px;}
+  ul{padding-left:20px;margin-bottom:12px;}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e2e8f0;}
+  th{color:#4338ca;font-weight:700;}
+  a{color:#6366f1;font-weight:600;}
+  .updated{font-size:13px;color:#94a3b8;margin-top:40px;}
+</style>
+</head>
+<body>
+  <div class="header">
+    <a href="/">← Retour à Ask2Trip</a>
+    <h1>Politique de confidentialité</h1>
+  </div>
+  <div class="wrap">
+
+    <h2>1. Responsable du traitement</h2>
+    <p>Lucas Fleur, éditeur d'Ask2Trip — contact : <a href="mailto:lucasfleur387@gmail.com">lucasfleur387@gmail.com</a></p>
+
+    <h2>2. Données collectées et finalités</h2>
+    <table>
+      <tr><th>Donnée</th><th>Finalité</th><th>Où elle est stockée</th></tr>
+      <tr><td>Destination, dates, budget, voyageurs, intérêts (formulaire)</td><td>Générer votre itinéraire</td><td>Transmise à l'API Google Gemini pour traitement, non stockée sur nos serveurs</td></tr>
+      <tr><td>Email + paiement (achat Pro)</td><td>Traiter votre commande, vous envoyer la clé de licence</td><td>Collectée et traitée directement par LemonSqueezy (prestataire de paiement)</td></tr>
+      <tr><td>Clé de licence Pro</td><td>Activer l'accès Pro</td><td>Stockée localement dans votre navigateur (localStorage), pas sur nos serveurs</td></tr>
+      <tr><td>Compteur de générations gratuites</td><td>Faire respecter la limite de l'offre gratuite</td><td>Stocké localement dans votre navigateur (localStorage)</td></tr>
+      <tr><td>Adresse IP, logs techniques</td><td>Sécurité, débogage</td><td>Logs d'hébergement Vercel, conservés temporairement (quelques heures)</td></tr>
+    </table>
+
+    <h2>3. Sous-traitants et destinataires</h2>
+    <ul>
+      <li><strong>Google (Gemini API, Places API)</strong> — génération des itinéraires et photos de lieux. Les données du formulaire sont transmises à Google pour traitement. Transferts possibles hors UE, encadrés par les clauses contractuelles types de Google.</li>
+      <li><strong>LemonSqueezy</strong> — traitement des paiements de l'offre Pro. LemonSqueezy agit en tant que revendeur officiel et responsable de traitement pour les données de paiement.</li>
+      <li><strong>Vercel</strong> — hébergement du site (États-Unis).</li>
+      <li><strong>Pixabay</strong> — fourniture de photos d'illustration pour les restaurants recommandés.</li>
+      <li><strong>Travelpayouts / GetYourGuide</strong> — programmes d'affiliation permettant d'attribuer une commission à Ask2Trip lorsque vous réservez via nos liens. Ces partenaires peuvent déposer des cookies/traceurs de suivi d'affiliation (voir notre <a href="/cookies.html">politique de cookies</a>).</li>
+    </ul>
+
+    <h2>4. Durée de conservation</h2>
+    <p>Ask2Trip ne conserve pas de base de données des itinéraires générés ni des informations saisies dans le formulaire : elles ne servent qu'au moment de la génération. Les données de paiement sont conservées par LemonSqueezy selon ses propres obligations légales et comptables.</p>
+
+    <h2>5. Vos droits (RGPD)</h2>
+    <p>Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation, d'opposition et de portabilité de vos données personnelles. Pour l'exercer, contactez-nous à <a href="mailto:lucasfleur387@gmail.com">lucasfleur387@gmail.com</a>. Pour les données liées au paiement, vous pouvez également contacter directement LemonSqueezy.</p>
+    <p>Vous avez également le droit d'introduire une réclamation auprès de la CNIL (<a href="https://www.cnil.fr" target="_blank">www.cnil.fr</a>) si vous estimez que vos droits ne sont pas respectés.</p>
+
+    <h2>6. Sécurité</h2>
+    <p>Ask2Trip met en œuvre les mesures raisonnables pour protéger les données transitant par le service (connexion chiffrée HTTPS, absence de stockage de données sensibles sur nos propres serveurs).</p>
+
+    <h2>7. Modification de la politique</h2>
+    <p>Cette politique peut être mise à jour. La version applicable est celle publiée sur cette page.</p>
+
+    <h2>8. Contact</h2>
+    <p><a href="mailto:lucasfleur387@gmail.com">lucasfleur387@gmail.com</a></p>
+
+    <p class="updated">Dernière mise à jour : 21 juin 2026</p>
+  </div>
+</body>
+</html>

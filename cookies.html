@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Politique de cookies — Ask2Trip</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;color:#1e293b;line-height:1.7;background:#f8fafc;}
+  .header{background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px 20px;color:white;}
+  .header a{color:white;text-decoration:none;font-weight:700;font-size:15px;opacity:.9;}
+  .header h1{margin-top:12px;font-size:26px;font-weight:800;}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 20px 80px;}
+  h2{font-size:20px;font-weight:700;margin:32px 0 12px;color:#4338ca;}
+  p,li{font-size:15px;color:#334155;margin-bottom:10px;}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+  th{color:#4338ca;font-weight:700;}
+  a{color:#6366f1;font-weight:600;}
+  button.manage{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;margin-top:10px;}
+  .updated{font-size:13px;color:#94a3b8;margin-top:40px;}
+</style>
+</head>
+<body>
+  <div class="header">
+    <a href="/">← Retour à Ask2Trip</a>
+    <h1>Politique de cookies</h1>
+  </div>
+  <div class="wrap">
+
+    <h2>1. Qu'est-ce qu'on utilise ?</h2>
+    <p>Ask2Trip utilise principalement le stockage local de votre navigateur (localStorage) plutôt que des cookies traditionnels, mais les règles de consentement applicables sont les mêmes.</p>
+
+    <h2>2. Stockage strictement nécessaire (pas de consentement requis)</h2>
+    <table>
+      <tr><th>Nom</th><th>Finalité</th><th>Durée</th></tr>
+      <tr><td><code>a2t_pro</code></td><td>Mémorise que vous avez débloqué l'offre Pro</td><td>Jusqu'à suppression manuelle</td></tr>
+      <tr><td>Compteur de générations</td><td>Faire respecter la limite de 3 générations gratuites/mois</td><td>Réinitialisé chaque mois</td></tr>
+    </table>
+
+    <h2>3. Cookies tiers liés à l'affiliation (consentement requis)</h2>
+    <p>Ask2Trip est rémunéré par commission lorsque vous réservez via nos liens partenaires. Pour cela, nos partenaires déposent des cookies de suivi permettant de nous attribuer la commission si vous effectuez une réservation :</p>
+    <table>
+      <tr><th>Partenaire</th><th>Finalité</th></tr>
+      <tr><td>GetYourGuide</td><td>Attribution de commission sur les réservations d'activités</td></tr>
+      <tr><td>Travelpayouts (réseau d'affiliation)</td><td>Attribution de commission sur les réservations de transport/hébergement via les plateformes partenaires</td></tr>
+    </table>
+    <p>Ces cookies ne sont déposés que si vous donnez votre consentement via le bandeau affiché lors de votre première visite.</p>
+
+    <h2>4. Gérer votre choix</h2>
+    <p>Vous pouvez modifier votre choix à tout moment en cliquant sur le bouton ci-dessous (cela réaffichera le bandeau de consentement sur la page d'accueil) :</p>
+    <button class="manage" onclick="localStorage.removeItem('a2t_cookie_consent'); window.location.href='/';">Gérer mes préférences cookies</button>
+
+    <h2>5. Contact</h2>
+    <p><a href="mailto:lucasfleur387@gmail.com">lucasfleur387@gmail.com</a></p>
+
+    <p class="updated">Dernière mise à jour : 21 juin 2026</p>
+  </div>
+</body>
+</html>

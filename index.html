@@ -13,16 +13,27 @@
   <!-- Leaflet map -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <!-- GetYourGuide Analytics -->
-  <script async defer src="https://widget.getyourguide.com/dist/pa.umd.production.min.js" data-gyg-partner-id="SBFA8QU"></script>
-  <!-- Travelpayouts Drive -->
-  <script nowprocket data-noptimize="1" data-cfasync="false" data-wpfc-render="false" seraph-accel-crit="1" data-no-defer="1">
-    (function () {
-      var script = document.createElement("script");
-      script.async = 1;
-      script.src = 'https://emrld.ltd/NTQxNjk1.js?t=541695';
-      document.head.appendChild(script);
-    })();
+  <!-- GetYourGuide Analytics + Travelpayouts Drive : chargés uniquement après consentement cookies -->
+  <script>
+    function loadAffiliateTrackers() {
+      if (window._a2tTrackersLoaded) return;
+      window._a2tTrackersLoaded = true;
+
+      var gyg = document.createElement('script');
+      gyg.async = true; gyg.defer = true;
+      gyg.src = 'https://widget.getyourguide.com/dist/pa.umd.production.min.js';
+      gyg.setAttribute('data-gyg-partner-id', 'SBFA8QU');
+      document.head.appendChild(gyg);
+
+      var tp = document.createElement('script');
+      tp.async = true;
+      tp.src = 'https://emrld.ltd/NTQxNjk1.js?t=541695';
+      document.head.appendChild(tp);
+    }
+    // Si consentement déjà donné lors d'une visite précédente, charge directement
+    if (localStorage.getItem('a2t_cookie_consent') === 'accepted') {
+      loadAffiliateTrackers();
+    }
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -163,6 +174,33 @@
     input:focus, select:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+
+    /* Wrapper pour les inputs date : empêche le picker natif (iOS/Android) de
+       dépasser visuellement de la bordure arrondie, quel que soit le navigateur. */
+    .date-field {
+      position: relative;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--white);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .date-field:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+    .date-field input[type="date"] {
+      border: none;
+      border-radius: 0;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      background: transparent;
+    }
+    .date-field input[type="date"]:focus {
+      box-shadow: none;
     }
 
     .interests-label {
@@ -1128,11 +1166,11 @@
       </div>
       <div class="form-group">
         <label>Date de départ *</label>
-        <input type="date" id="dateDebut" required />
+        <div class="date-field"><input type="date" id="dateDebut" required /></div>
       </div>
       <div class="form-group">
         <label>Date de retour *</label>
-        <input type="date" id="dateFin" required />
+        <div class="date-field"><input type="date" id="dateFin" required /></div>
       </div>
       <div class="form-group">
         <label>Budget total (€) *</label>
@@ -1272,7 +1310,39 @@
 <!-- FOOTER -->
 <footer>
   <p>Ask2Trip — Planifiez votre voyage parfait gratuitement · Les liens de réservation sont des liens partenaires</p>
+  <p style="margin-top:8px;font-size:13px;">
+    <a href="/mentions-legales.html" style="margin:0 8px;">Mentions légales</a>·
+    <a href="/cgu.html" style="margin:0 8px;">CGU/CGV</a>·
+    <a href="/confidentialite.html" style="margin:0 8px;">Confidentialité</a>·
+    <a href="/cookies.html" style="margin:0 8px;">Cookies</a>
+  </p>
 </footer>
+
+<!-- BANDEAU CONSENTEMENT COOKIES -->
+<div id="cookieBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e1b3a;color:white;padding:18px 20px;z-index:99999;box-shadow:0 -4px 24px rgba(0,0,0,0.25);">
+  <div style="max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+    <p style="flex:1;min-width:240px;font-size:13.5px;line-height:1.5;color:#e2e8f0;">
+      🍪 On utilise des cookies/traceurs pour les liens partenaires (Booking.com, GetYourGuide…) afin de financer Ask2Trip gratuitement pour toi.
+      <a href="/cookies.html" style="color:#a5b4fc;font-weight:700;">En savoir plus</a>
+    </p>
+    <div style="display:flex;gap:10px;flex-shrink:0;">
+      <button onclick="a2tCookieChoice(false)" style="background:transparent;border:1.5px solid rgba(255,255,255,0.3);color:white;padding:10px 18px;border-radius:10px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;">Refuser</button>
+      <button onclick="a2tCookieChoice(true)" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:white;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;">Accepter</button>
+    </div>
+  </div>
+</div>
+<script>
+  function a2tCookieChoice(accepted) {
+    localStorage.setItem('a2t_cookie_consent', accepted ? 'accepted' : 'refused');
+    document.getElementById('cookieBanner').style.display = 'none';
+    if (accepted && typeof loadAffiliateTrackers === 'function') loadAffiliateTrackers();
+  }
+  if (!localStorage.getItem('a2t_cookie_consent')) {
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('cookieBanner').style.display = 'block';
+    });
+  }
+</script>
 
 <script>
   // Gestion des chips d'intérêt
