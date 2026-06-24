@@ -1478,6 +1478,9 @@
               }
               h+='</div>';
             });
+            h+='<div style="padding:8px 16px 14px;">'
+              +'<button onclick="goToGYG()" style="background:none;border:1px solid var(--primary-light);color:var(--primary);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;">🎟️ Voir les activités réservables sur GetYourGuide →</button>'
+              +'</div>';
             h+='</div></div>';
             return h;
           }).join('');
@@ -2247,6 +2250,18 @@
 
   // Init counter on page load
   updateCounter();
+
+  function goToGYG() {
+    var gygBtn = null;
+    document.querySelectorAll('.tab-btn').forEach(function(b) {
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'gyg'") !== -1) gygBtn = b;
+    });
+    if (gygBtn) {
+      switchTab('gyg', gygBtn);
+      var resultsEl = document.getElementById('results') || document.querySelector('.tabs-bar');
+      if (resultsEl) resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
 
   function switchTab(tab, btn) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
