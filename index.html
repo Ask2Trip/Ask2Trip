@@ -688,15 +688,44 @@
       transition:background 0.18s;
     }
     .paywall-close:hover { background:var(--border); }
-    .paywall-plans { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:24px 0; }
-    .plan-free { background:var(--bg); border-radius:14px; padding:18px; font-size:13px; color:var(--text-muted); border:1px solid var(--border); }
-    .plan-pro { background:linear-gradient(135deg,#eef2ff,#f5f3ff); border:2px solid var(--primary); border-radius:14px; padding:18px; font-size:13px; color:var(--primary-dark); }
-    .plan-title { font-weight:800; font-size:14px; margin-bottom:12px; }
-    .plan-feature { display:flex; flex-direction:column; gap:6px; }
+    .paywall-box { max-width:720px !important; padding:28px 24px !important; }
+    .paywall-plans { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:18px 0 14px; }
+    .plan-card {
+      border-radius:16px; padding:18px 14px 14px; font-size:13px;
+      position:relative; margin-top:12px; display:flex; flex-direction:column;
+    }
+    .plan-monthly { background:white; border:1.5px solid #e2e8f0; }
+    .plan-annual { background:white; border:2px solid var(--primary); }
+    .plan-founder { background:white; border:2px solid #f59e0b; }
+    .plan-badge {
+      position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+      font-size:10px; font-weight:700; padding:3px 10px;
+      border-radius:100px; white-space:nowrap; letter-spacing:0.2px;
+    }
+    .plan-badge-blue { background:var(--primary); color:white; }
+    .plan-badge-amber { background:#f59e0b; color:white; }
+    .plan-title { font-weight:700; font-size:11px; color:#94a3b8; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+    .plan-price { font-size:24px; font-weight:800; letter-spacing:-1px; margin-bottom:2px; color:#0f172a; }
+    .plan-period { font-size:11px; color:#94a3b8; margin-bottom:12px; line-height:1.5; }
+    .plan-features { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; flex:1; }
+    .plan-feature-row { font-size:12px; color:#475569; display:flex; align-items:center; gap:5px; }
+    .plan-btn {
+      display:block; text-align:center; padding:10px 8px;
+      border-radius:10px; font-size:13px; font-weight:700;
+      text-decoration:none; border:none; cursor:pointer;
+      font-family:'Inter',sans-serif; width:100%;
+      transition:all 0.18s var(--ease); box-sizing:border-box;
+    }
+    .plan-btn-monthly { background:#f1f5f9; color:#334155; }
+    .plan-btn-monthly:hover { background:#e2e8f0; }
+    .plan-btn-annual { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:white; box-shadow:0 4px 16px rgba(99,102,241,0.3); }
+    .plan-btn-annual:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,0.4); }
+    .plan-btn-founder { background:linear-gradient(135deg,#f59e0b,#d97706); color:white; box-shadow:0 4px 16px rgba(245,158,11,0.3); }
+    .plan-btn-founder:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(245,158,11,0.4); }
     .btn-gumroad {
-      display:block; text-align:center; padding:17px;
+      display:block; text-align:center; padding:15px;
       background:linear-gradient(135deg,var(--primary),var(--primary-dark));
-      color:white; border-radius:14px; font-size:16px; font-weight:700;
+      color:white; border-radius:14px; font-size:15px; font-weight:700;
       text-decoration:none; margin-bottom:14px;
       transition:all 0.18s var(--ease);
       box-shadow:0 8px 28px rgba(99,102,241,0.35);
