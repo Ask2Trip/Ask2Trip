@@ -1635,9 +1635,19 @@
 
       <!-- ACTIVITÉS GYG -->
       <div class="tab-content" id="tab-gyg">
-        <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">Les activités réservables de votre itinéraire, directement sur GetYourGuide.</p>
-        <p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:14px;">🏆 Top activités à ${destination.split(',')[0].trim()}</p>
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">Les meilleures activités réservables à ${destination.split(',')[0].trim()}, directement sur GetYourGuide.</p>
+
+        <p style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:14px;">🏆 Top activités</p>
         <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="6" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()}"></div>
+
+        <p style="font-size:16px;font-weight:700;color:var(--text);margin:32px 0 14px;">🏛️ Visites & culture</p>
+        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="4" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()} visite musée monument"></div>
+
+        <p style="font-size:16px;font-weight:700;color:var(--text);margin:32px 0 14px;">🥾 Excursions & plein air</p>
+        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="4" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()} excursion randonnée nature"></div>
+
+        <p style="font-size:16px;font-weight:700;color:var(--text);margin:32px 0 14px;">🍷 Gastronomie & expériences</p>
+        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="4" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()} gastronomie dégustation food tour"></div>
 
       </div>
 
