@@ -173,8 +173,8 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
     // Gemini : 2.5-flash (primaire) → 3.5-flash (fallback) → Groq llama-3.3-70b (gratuit, illimité)
     const GEMINI_MODELS = [
-      { model: 'gemini-2.5-flash', version: 'v1beta' },
-      { model: 'gemini-1.5-flash', version: 'v1beta' }
+      { model: 'gemini-2.5-flash-lite', version: 'v1beta' },  // primaire — 6x moins cher que flash
+      { model: 'gemini-2.5-flash', version: 'v1beta' }         // fallback si lite indispo
     ];
 
     const callGemini = async ({ model, version }) => {
