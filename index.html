@@ -833,14 +833,13 @@
     <div class="stat"><div class="stat-num">2 min</div><div class="stat-label">Génération</div></div>
     <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Destinations</div></div>
   </div>
-  <div id="heroPro" style="margin-top:28px;position:relative;">
-    <button onclick="showPaywall('Débloquez les générations illimitées et les itinéraires jusqu\'à 21 jours.')"
+  <div style="margin-top:28px;">
+    <button onclick="showPaywall('')"
       style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.4);color:white;padding:10px 22px;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;backdrop-filter:blur(8px);transition:all 0.2s;"
       onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
-      ✨ Passer à Pro — 9,99€ à vie
+      ✨ Abonnement Pro
     </button>
   </div>
-  <script>if(localStorage.getItem('a2t_pro')==='UNLOCKED'){document.getElementById('heroPro').style.display='none';}</script>
 </section>
 
 <!-- FORM -->
@@ -972,6 +971,7 @@
         <div class="plan-features">
           <div class="plan-feature-row">✅ Générations illimitées</div>
           <div class="plan-feature-row">✅ Jusqu'à 21 jours</div>
+          <div class="plan-feature-row">✅ Carte interactive</div>
           <div class="plan-feature-row">✅ Export PDF</div>
         </div>
         <a href="https://buy.stripe.com/9B614n5FnbYGf9yguR6Na00" target="_blank" class="plan-btn plan-btn-monthly" onclick="return _checkPlanLink(this)">Mensuel →</a>
@@ -986,6 +986,7 @@
         <div class="plan-features">
           <div class="plan-feature-row">✅ Générations illimitées</div>
           <div class="plan-feature-row">✅ Jusqu'à 21 jours</div>
+          <div class="plan-feature-row">✅ Carte interactive</div>
           <div class="plan-feature-row">✅ Export PDF</div>
         </div>
         <a href="https://buy.stripe.com/7sY4gzgk10fY4uU1zX6Na02" target="_blank" class="plan-btn plan-btn-annual" onclick="return _checkPlanLink(this)">Annuel — -48% →</a>
@@ -1000,6 +1001,7 @@
         <div class="plan-features">
           <div class="plan-feature-row">✅ Générations illimitées</div>
           <div class="plan-feature-row">✅ Jusqu'à 21 jours</div>
+          <div class="plan-feature-row">✅ Carte interactive</div>
           <div class="plan-feature-row">✅ Export PDF</div>
           <div class="plan-feature-row">✅ Prix jamais augmenté</div>
         </div>
@@ -1009,7 +1011,7 @@
     </div>
 
     <div style="text-align:center;margin-top:4px;">
-      <button onclick="showUnlockForm()" style="border:none;background:none;color:var(--text-muted);font-size:12px;cursor:pointer;text-decoration:underline;">Déjà abonné ? Entrer mon email →</button>
+      <button onclick="showUnlockForm()" style="border:none;background:none;color:#94a3b8;font-size:11px;cursor:pointer;text-decoration:underline;">Déjà abonné ? Activer avec ton email →</button>
     </div>
     <div id="unlockForm" style="display:none;margin-top:12px;">
       <div style="display:flex;gap:8px;">
@@ -1020,7 +1022,7 @@
           Activer
         </button>
       </div>
-      <div id="licenseMsg" style="font-size:13px;margin-top:8px;min-height:18px;color:var(--text-muted);">Entre l'email utilisé lors de ton paiement Stripe.</div>
+      <div id="licenseMsg" style="font-size:13px;margin-top:8px;min-height:18px;"></div>
     </div>
   </div>
 </div>
@@ -1208,7 +1210,7 @@
         errBox = document.createElement('div');
         errBox.id = 'errorBox';
         errBox.style.cssText = 'background:#fff1f2;border:1.5px solid #fca5a5;border-radius:12px;padding:16px 20px;margin:16px auto;max-width:600px;text-align:center;color:#dc2626;font-size:15px;';
-        document.getElementById('formCard').after(errBox);
+        (document.querySelector('.form-card') || document.body).appendChild(errBox);
       }
       errBox.innerHTML = `⚠️ ${msg}`;
       errBox.style.display = 'block';
@@ -2405,3 +2407,4 @@
 </script>
 </body>
 </html>
+                                                                                                                                                                                                                                                               

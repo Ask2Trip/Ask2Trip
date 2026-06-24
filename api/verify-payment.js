@@ -34,6 +34,12 @@ module.exports = async function handler(req, res) {
     // ── Vérification par email (abonné qui revient ou change d'appareil) ───────
     if (email) {
       const emailClean = email.trim().toLowerCase();
+
+      // Whitelist gratuite — ajoute WHITELISTED_EMAILS dans les env vars Vercel (emails séparés par virgule)
+      const whitelist = (process.env.WHITELISTED_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+      if (whitelist.includes(emailClean)) {
+        return res.status(200).json({ valid: true });
+      }
       // 1. Chercher le customer Stripe par email
       const customers = await stripeGet(`/customers?email=${encodeURIComponent(emailClean)}&limit=5`);
       const customer = customers.data?.[0];
