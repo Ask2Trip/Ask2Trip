@@ -217,11 +217,11 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       geminiRes = await callGemini(GEMINI_MODELS[i]);
     }
 
-    if (!geminiRes.ok) {
-      const errData = await geminiRes.json().catch(() => ({}));
+    if (!geminiRes || !geminiRes.ok) {
+      const errData = geminiRes ? await geminiRes.json().catch(() => ({})) : {};
       const msg = errData.error?.message || '';
-      const isQuota = msg.toLowerCase().includes('quota') || geminiRes.status === 429;
-      await notifyDiscord(`🚨 **Ask2Trip — tous les modèles Gemini ont échoué** (${geminiRes.status}), tentative Groq...\n\`${msg.slice(0,200)}\``);
+      const isQuota = msg.toLowerCase().includes('quota') || (geminiRes && geminiRes.status === 429);
+      await notifyDiscord(`🚨 **Ask2Trip — tous les modèles Gemini ont échoué** (${geminiRes?.status || 'null'}), tentative Groq...\n\`${msg.slice(0,200)}\``);
       geminiRes = null; // force fallback Groq
     }
 
@@ -337,6 +337,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     if (!err.message.includes('surchargé')) {
       await notifyDiscord(`🚨 **Ask2Trip — erreur inattendue dans generate.js**\n\`${(err.message || '').slice(0,200)}\``);
     }
-    return res.status(500).json({ error: err.message || 'Erreur lors de la génération.' });
+    const isUserError = (err.message || '').includes('indisponible') || (err.message || '').includes('surchargé') || (err.message || '').includes('Pro');
+    return res.status(isUserError ? 200 : 500).json({ error: err.message || 'Erreur lors de la génération.' });
   }
 };
