@@ -195,7 +195,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'llama-3.1-8b-instant',
           messages: [
             { role: 'system', content: 'Tu es un expert en planification de voyages. Réponds UNIQUEMENT avec du JSON valide, sans texte avant ni après, sans balises markdown.' },
             { role: 'user', content: prompt }
@@ -232,7 +232,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       rawText = geminiData.candidates[0].content.parts[0].text.trim();
     } else if (groqKey) {
       // Groq : gratuit, 14 400 requêtes/jour, modèle Llama 3.3 70B
-      console.log('Fallback Groq llama-3.3-70b-versatile');
+      console.log('Fallback Groq llama-3.1-8b-instant');
       await notifyDiscord('⚠️ **Ask2Trip** — Gemini indisponible, fallback Groq activé.');
       const groqRes = await callGroq();
       if (!groqRes.ok) {
