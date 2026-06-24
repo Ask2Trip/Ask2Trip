@@ -211,10 +211,10 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
     // Fallback sur les modèles suivants si surchargé, quota dépassé ou erreur
     for (let i = 1; geminiRes && i < GEMINI_MODELS.length && !geminiRes.ok && [400, 404, 429, 500, 503].includes(geminiRes.status); i++) {
-      console.log(`${MODELS[i-1].model} indisponible (${geminiRes.status}), fallback sur ${MODELS[i].model}`);
-      await notifyDiscord(`⚠️ **Ask2Trip** — \`${MODELS[i-1].model}\` indisponible (${geminiRes.status}), fallback sur \`${MODELS[i].model}\`. Surveille si ça se reproduit souvent → quota bientôt épuisé.`);
+      console.log(`${GEMINI_MODELS[i-1].model} indisponible (${geminiRes.status}), fallback sur ${GEMINI_MODELS[i].model}`);
+      await notifyDiscord(`⚠️ **Ask2Trip** — \`${GEMINI_MODELS[i-1].model}\` indisponible (${geminiRes.status}), fallback sur \`${GEMINI_MODELS[i].model}\`. Surveille si ça se reproduit souvent → quota bientôt épuisé.`);
       await new Promise(r => setTimeout(r, 1000));
-      geminiRes = await callGemini(MODELS[i]);
+      geminiRes = await callGemini(GEMINI_MODELS[i]);
     }
 
     if (!geminiRes.ok) {
