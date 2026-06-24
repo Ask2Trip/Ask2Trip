@@ -171,11 +171,10 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     const apiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
 
-    // Gemini : 2.5-flash (primaire) → 3.5-flash (fallback) → Groq llama-3.3-70b (gratuit, illimité)
-    const GEMINI_MODELS = [
-      { model: 'gemini-2.5-flash-lite', version: 'v1beta' },  // primaire — 6x moins cher que flash
-      { model: 'gemini-2.5-flash', version: 'v1beta' }         // fallback si lite indispo
-    ];
+    // Chaîne : gemini-2.5-flash-lite → groq llama-3.1-8b → gemini-2.5-flash (dernier recours payant)
+    const GEMINI_PRIMARY = { model: 'gemini-2.5-flash-lite', version: 'v1beta' };
+    const GEMINI_FALLBACK = { model: 'gemini-2.5-flash', version: 'v1beta' };
+    const GEMINI_MODELS = [GEMINI_PRIMARY]; // pour compatibilité boucle
 
     const callGemini = async ({ model, version }) => {
       const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
@@ -217,32 +216,47 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       geminiRes = await callGemini(GEMINI_MODELS[i]);
     }
 
-    if (!geminiRes || !geminiRes.ok) {
-      const errData = geminiRes ? await geminiRes.json().catch(() => ({})) : {};
-      const msg = errData.error?.message || '';
-      const isQuota = msg.toLowerCase().includes('quota') || (geminiRes && geminiRes.status === 429);
-      await notifyDiscord(`🚨 **Ask2Trip — tous les modèles Gemini ont échoué** (${geminiRes?.status || 'null'}), tentative Groq...\n\`${msg.slice(0,200)}\``);
-      geminiRes = null; // force fallback Groq
-    }
-
     // ── Extraction du texte brut selon le provider ───────────────────────────
     let rawText;
     if (geminiRes && geminiRes.ok) {
+      // 1. Gemini 2.5-flash-lite OK
       const geminiData = await geminiRes.json();
       rawText = geminiData.candidates[0].content.parts[0].text.trim();
     } else if (groqKey) {
-      // Groq : gratuit, 14 400 requêtes/jour, modèle Llama 3.3 70B
+      // 2. Groq llama-3.1-8b (gratuit, cheap)
       console.log('Fallback Groq llama-3.1-8b-instant');
-      await notifyDiscord('⚠️ **Ask2Trip** — Gemini indisponible, fallback Groq activé.');
+      await notifyDiscord('⚠️ **Ask2Trip** — Gemini lite indisponible, fallback Groq activé.');
       const groqRes = await callGroq();
-      if (!groqRes.ok) {
+      if (groqRes.ok) {
+        const groqData = await groqRes.json();
+        rawText = groqData.choices[0].message.content.trim();
+      } else {
+        // 3. Gemini 2.5-flash (dernier recours — payant mais fiable)
         const groqErr = await groqRes.json().catch(() => ({}));
         console.error('Groq error:', groqRes.status, JSON.stringify(groqErr).slice(0, 300));
-        await notifyDiscord(`🚨 **Ask2Trip — Groq aussi en échec** (${groqRes.status})\n\`${JSON.stringify(groqErr).slice(0,200)}\``);
-        throw new Error('Tous les services IA sont temporairement indisponibles. Réessaie dans quelques minutes ⏳');
+        await notifyDiscord(`⚠️ **Ask2Trip** — Groq aussi en échec (${groqRes.status}), tentative gemini-2.5-flash...`);
+        if (apiKey) {
+          const flashRes = await callGemini(GEMINI_FALLBACK);
+          if (flashRes.ok) {
+            const flashData = await flashRes.json();
+            rawText = flashData.candidates[0].content.parts[0].text.trim();
+          } else {
+            await notifyDiscord('🚨 **Ask2Trip** — tous les services IA ont échoué.');
+            throw new Error('Tous les services IA sont temporairement indisponibles. Réessaie dans quelques minutes ⏳');
+          }
+        } else {
+          throw new Error('Tous les services IA sont temporairement indisponibles. Réessaie dans quelques minutes ⏳');
+        }
       }
-      const groqData = await groqRes.json();
-      rawText = groqData.choices[0].message.content.trim();
+    } else if (apiKey) {
+      // Groq key absente → direct gemini-2.5-flash
+      const flashRes = await callGemini(GEMINI_FALLBACK);
+      if (flashRes.ok) {
+        const flashData = await flashRes.json();
+        rawText = flashData.candidates[0].content.parts[0].text.trim();
+      } else {
+        throw new Error('Service IA indisponible. Réessaie dans quelques minutes ⏳');
+      }
     } else {
       throw new Error('Service IA indisponible. Réessaie dans quelques minutes ⏳');
     }
