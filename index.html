@@ -813,6 +813,19 @@
       #tripMap { height:360px; }
       .tabs { padding:4px; }
       .tab-btn { font-size:12px; padding:9px 10px; min-width:80px; }
+      /* Activités mobile */
+      .day-header { padding:14px 16px; gap:10px; }
+      .day-title { font-size:14px; }
+      .day-date { font-size:12px; }
+      .activity { padding:14px 16px; gap:10px; flex-wrap:wrap; }
+      .activity-row1 { width:100%; flex-wrap:wrap; gap:6px; }
+      .activity-name { font-size:14px; }
+      .activity-time { font-size:11px; padding:3px 8px; }
+      .activity-tags { width:100%; margin-top:2px; }
+      .activity-toggle { margin-top:6px; }
+      .activity-details { width:100%; overflow-x:hidden; }
+      .activity-details [data-gyg-widget] { max-width:100%; overflow:hidden; }
+      .activity-desc { font-size:13px; }
     }
     @media (max-width:600px) {
       :root { --nav-h:56px; }
@@ -823,12 +836,22 @@
       .paywall-plans { grid-template-columns:1fr; }
       .footer-inner { flex-direction:column; align-items:flex-start; gap:16px; }
       .result-meta { gap:6px; }
+      /* Activités petit mobile */
+      .day-header { padding:12px 14px; }
+      .day-number { width:32px; height:32px; font-size:13px; border-radius:10px; }
+      .activity { padding:12px 14px; }
+      .activity-name { font-size:13px; }
+      .activity-details { margin-top:8px; }
+      .activity-details [data-gyg-widget] { transform-origin:top left; font-size:13px; }
     }
     @media (max-width:480px) {
       .resto-grid { grid-template-columns:1fr; }
       .budget-grid { grid-template-columns:repeat(2,1fr); }
       .nav-logo span { display:none; }
       .tab-btn { font-size:11px; padding:8px 8px; }
+      .day-card { margin-bottom:12px; }
+      .activity { padding:10px 12px; }
+      .activity-toggle { font-size:11px; padding:3px 9px; }
     }
   </style>
 </head>
@@ -1447,11 +1470,15 @@
                 h+='<button class="activity-toggle" onclick="var d=this.nextElementSibling;d.classList.toggle(\'open\');this.textContent=d.classList.contains(\'open\')?\'▲ Masquer\':\'▼ Voir détails\'">▼ Voir détails</button>'
                   +'<div class="activity-details">'
                   +(act.description?'<div class="activity-desc">'+act.description+'</div>':'')
+                  +(isBookableActivity(act)?(function(){
+                    var q=encodeURIComponent((act.activite||'')+' '+(destination.split(',')[0]||'')).replace(/%20/g,'+');
+                    return '<div style="margin-top:14px;" data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="3" data-gyg-partner-id="SBFA8QU" data-gyg-q="'+q+'"></div>';
+                  })():'')
                   +'</div>';
               }
               h+='</div>';
             });
-            h+='<div style="padding:10px 16px 16px;">'
+            h+='<div style="padding:8px 16px 14px;">'
               +'<button onclick="goToGYG()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-family:inherit;box-shadow:0 4px 14px rgba(99,102,241,0.35);letter-spacing:0.01em;">🎟️ Réserver une activité sur GetYourGuide</button>'
               +'</div>';
             h+='</div></div>';
@@ -1608,11 +1635,10 @@
 
       <!-- ACTIVITÉS GYG -->
       <div class="tab-content" id="tab-gyg">
-        <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">Activités et expériences disponibles à ${destination.split(',')[0].trim()}. Réservez directement via GetYourGuide.</p>
-        <h3 style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:16px;">🎟️ Activités recommandées</h3>
-        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="3" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()}"></div>
-        <h3 style="font-size:16px;font-weight:600;color:var(--text);margin:32px 0 16px;">🏙️ Explorer la destination</h3>
-        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="6" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()} visite guidée excursion"></div>
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">Les activités réservables de votre itinéraire, directement sur GetYourGuide.</p>
+        <p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:14px;">🏆 Top activités à ${destination.split(',')[0].trim()}</p>
+        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="6" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()}"></div>
+
       </div>
 
     `;
@@ -2561,4 +2587,45 @@
       // Overlay Pro sur la carte si non-Pro et jours bloqués
       if (!isPro() && visibleDays < totalDays) {
         const overlay = document.createElement('div');
-        overlay.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:42%;background:linear-gradient(to bottom, transparent, rgba(15,23,42,0.92));display:flex;flex-direct
+        overlay.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:42%;background:linear-gradient(to bottom, transparent, rgba(15,23,42,0.92));display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:24px;z-index:500;pointer-events:auto;`;
+        overlay.innerHTML = `
+          <div style="text-align:center;color:white;">
+            <div style="font-size:15px;font-weight:700;margin-bottom:8px;">🔒 ${totalDays - visibleDays} jour${totalDays - visibleDays > 1 ? 's' : ''} masqué${totalDays - visibleDays > 1 ? 's' : ''}</div>
+            <div style="font-size:13px;opacity:0.75;margin-bottom:14px;">La carte complète est réservée aux membres Pro</div>
+            <button onclick="showPaywall('Débloquez la carte complète et toutes les fonctionnalités Pro.')"
+              style="padding:10px 20px;background:#6366f1;color:white;border:none;border-radius:100px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+              ✨ Débloquer Pro — 9,99€
+            </button>
+          </div>`;
+        mapEl.style.position = 'relative';
+        mapEl.appendChild(overlay);
+      }
+
+      window._mapFilterClick = function(btn) {
+        const val = btn.dataset.day;
+        applyFilter(val === 'all' ? -1 : +val);
+      };
+
+      // Activer "Tous" par défaut
+      applyFilter(-1);
+    }
+
+    // Légende
+    if (legendEl) {
+      const dayItems = dayGroups.map((d, i) => `
+        <div class="map-legend-item">
+          <div class="map-legend-dot" style="background:${d.color}"></div>
+          <span>Jour ${d.day.jour}${d.day.titre ? ' — ' + d.day.titre : ''}</span>
+        </div>`).join('');
+      legendEl.innerHTML = dayItems + `
+        <div class="map-legend-item" style="margin-left:auto">
+          <div class="map-legend-dot" style="background:${HOTEL_COLOR}"></div><span>🏨 Hébergements</span>
+        </div>
+        <div class="map-legend-item">
+          <div class="map-legend-dot" style="background:${RESTO_COLOR}"></div><span>🍽️ Restaurants</span>
+        </div>`;
+    }
+  }
+</script>
+</body>
+</html>
