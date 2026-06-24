@@ -4,6 +4,7 @@
     { "src": "api/generate.js", "use": "@vercel/node" },
     { "src": "api/verify-license.js", "use": "@vercel/node" },
     { "src": "api/verify-payment.js", "use": "@vercel/node" },
+    { "src": "api/maps-config.js", "use": "@vercel/node" },
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "favicon.ico", "use": "@vercel/static" },
     { "src": "favicon-32.png", "use": "@vercel/static" },
@@ -18,14 +19,11 @@
     { "src": "/api/generate", "dest": "/api/generate.js" },
     { "src": "/api/verify-license", "dest": "/api/verify-license.js" },
     { "src": "/api/verify-payment", "dest": "/api/verify-payment.js" },
+    { "src": "/api/maps-config", "dest": "/api/maps-config.js" },
     { "src": "/favicon.ico", "dest": "/favicon.ico" },
     { "src": "/favicon-32.png", "dest": "/favicon-32.png" },
     { "src": "/favicon-192.png", "dest": "/favicon-192.png" },
     { "src": "/favicon-512.png", "dest": "/favicon-512.png" },
     { "src": "/mentions-legales.html", "dest": "/mentions-legales.html" },
     { "src": "/cgu.html", "dest": "/cgu.html" },
-    { "src": "/confidentialite.html", "dest": "/confidentialite.html" },
-    { "src": "/cookies.html", "dest": "/cookies.html" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
-}
+    { "src": "/confidentialite.html", "dest": "/confiden

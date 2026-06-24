@@ -2231,9 +2231,155 @@
     }
   }
 
+  // ── Google Maps: chargement asynchrone ──────────────────────────────────
+  let _mapsKeyPromise = (async () => {
+    try {
+      const r = await fetch('/api/maps-config');
+      const d = await r.json();
+      if (!d.key) return null;
+      return new Promise(resolve => {
+        window._gmCallback = resolve;
+        const s = document.createElement('script');
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${d.key}&callback=_gmCallback`;
+        s.async = true; s.defer = true;
+        document.head.appendChild(s);
+      });
+    } catch(e) { return null; }
+  })();
+
   let _mapInstance = null;
 
-  function buildMap(data) {
+  // ── Async selector: Google Maps si dispo, sinon Leaflet ───────────────────
+  async function buildMap(data) {
+    const mapEl = document.getElementById('tripMap');
+    if (!mapEl) return;
+    let hasCoords = false;
+    (data.itineraire||[]).forEach(d=>(d.activites||[]).forEach(a=>{ if(a.lat&&a.lng) hasCoords=true; }));
+    if (!hasCoords) {
+      const filterEl = document.getElementById('mapDayFilter');
+      mapEl.style.height='auto';
+      mapEl.innerHTML='<p style="text-align:center;padding:48px 24px;color:var(--text-muted);">📍 Coordonnées indisponibles pour cette génération.</p>';
+      if(filterEl) filterEl.innerHTML='';
+      return;
+    }
+    await _mapsKeyPromise;
+    if (window.google && window.google.maps) {
+      if (window._gMap) { mapEl.innerHTML=''; window._gMap=null; }
+      if (_mapInstance) { try{_mapInstance.remove();}catch(e){} _mapInstance=null; }
+      buildGoogleMap(data);
+    } else {
+      buildLeafletMap(data);
+    }
+  }
+
+  function buildGoogleMap(data) {
+    const mapEl = document.getElementById('tripMap');
+    const legendEl = document.getElementById('mapLegend');
+    const filterEl = document.getElementById('mapDayFilter');
+    const DAY_COLORS=['#6366f1','#ef4444','#10b981','#f59e0b','#0ea5e9','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#84cc16','#a855f7'];
+    const HOTEL_COLOR='#1d4ed8', RESTO_COLOR='#b45309';
+
+    const gMap = new google.maps.Map(mapEl, {
+      mapTypeId:'roadmap', mapTypeControl:false, streetViewControl:false,
+      fullscreenControl:true, zoomControl:true, gestureHandling:'cooperative'
+    });
+    window._gMap = gMap;
+
+    const bounds = new google.maps.LatLngBounds();
+    const infoWin = new google.maps.InfoWindow();
+    const totalDays = (data.itineraire||[]).length;
+    const visibleDays = isPro() ? totalDays : Math.ceil(totalDays/2);
+
+    const pin = (lat, lng, label, color, size, title) => {
+      const m = new google.maps.Marker({
+        position:{lat:+lat,lng:+lng}, map:gMap, title,
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:size,fillColor:color,fillOpacity:1,strokeColor:'white',strokeWeight:2},
+        label: label!=null ? {text:String(label),color:'white',fontWeight:'bold',fontSize:(size>13?'11':'9')+'px'} : undefined
+      });
+      bounds.extend({lat:+lat,lng:+lng});
+      return m;
+    };
+
+    const popup = (html, m) => { m.addListener('click',()=>{ infoWin.setContent(html); infoWin.open(gMap,m); }); };
+    const gmLink = (lat,lng) => `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" style="display:inline-block;margin-top:8px;font-size:12px;color:#4285f4;font-weight:600;text-decoration:none;">📍 Google Maps →</a>`;
+
+    (data.hebergements||[]).forEach(h=>{
+      if(!h.lat||!h.lng) return;
+      const m=pin(h.lat,h.lng,'🏨',HOTEL_COLOR,16,h.nom);
+      popup(`<div style="min-width:180px;font-family:Inter,sans-serif"><strong>${h.nom}</strong><br><small style="color:#64748b">${h.quartier||''} · ${h.prix_nuit||''}/nuit</small><br><span style="font-size:12px;display:block;margin-top:4px">${h.description||''}</span>${gmLink(h.lat,h.lng)}</div>`,m);
+    });
+    (data.restaurants||[]).forEach(r=>{
+      if(!r.lat||!r.lng) return;
+      const m=pin(r.lat,r.lng,'🍽',RESTO_COLOR,14,r.nom);
+      popup(`<div style="min-width:180px;font-family:Inter,sans-serif"><strong>${r.nom}</strong><br><small style="color:#64748b">${r.type||''} · ${r.prix||''} · ${r.quartier||''}</small><br><span style="font-size:12px;display:block;margin-top:4px">${r.description||''}</span>${gmLink(r.lat,r.lng)}</div>`,m);
+    });
+
+    const dayGroups=[];
+    (data.itineraire||[]).forEach((day,di)=>{
+      const color=DAY_COLORS[di%DAY_COLORS.length];
+      const locked=di>=visibleDays;
+      const markers=[]; const coords=[];
+      if(!locked){
+        (day.activites||[]).forEach((act,ai)=>{
+          if(!act.lat||!act.lng) return;
+          const m=pin(act.lat,act.lng,ai+1,color,14,act.activite);
+          popup(`<div style="min-width:190px;font-family:Inter,sans-serif"><strong>${act.activite}</strong><br><small style="color:#64748b">Jour ${day.jour} · ${act.heure||''}</small><br><span style="font-size:12px;line-height:1.4;display:block;margin-top:4px">${act.description||''}</span>${gmLink(act.lat,act.lng)}</div>`,m);
+          markers.push(m); coords.push({lat:+act.lat,lng:+act.lng});
+        });
+      }
+      let poly=null;
+      if(coords.length>1){
+        poly=new google.maps.Polyline({path:coords,geodesic:true,strokeColor:color,strokeOpacity:0.8,strokeWeight:3,map:gMap,
+          icons:[{icon:{path:google.maps.SymbolPath.FORWARD_OPEN_ARROW,scale:2.5},offset:'50%'}]});
+      }
+      dayGroups.push({markers,poly,color,day,locked,coords});
+    });
+
+    if(!bounds.isEmpty()) gMap.fitBounds(bounds);
+
+    const hotelCoords=(data.hebergements||[]).filter(h=>h.lat&&h.lng).map(h=>({lat:+h.lat,lng:+h.lng}));
+
+    function applyFilter(sel){
+      dayGroups.forEach((dg,i)=>{
+        const show=sel===-1||i===sel;
+        dg.markers.forEach(m=>m.setMap(show&&!dg.locked?gMap:null));
+        if(dg.poly) dg.poly.setMap(show&&!dg.locked?gMap:null);
+      });
+      if(sel!==-1){
+        const dg=dayGroups[sel];
+        if(dg&&dg.coords.length>0){
+          const b=new google.maps.LatLngBounds();
+          [...dg.coords,...hotelCoords].forEach(c=>b.extend(c));
+          gMap.fitBounds(b);
+        }
+      } else if(!bounds.isEmpty()) gMap.fitBounds(bounds);
+      if(filterEl) filterEl.querySelectorAll('.map-day-btn').forEach((btn,i)=>{
+        const isAll=btn.dataset.day==='all';
+        const active=(sel===-1&&isAll)||(!isAll&&+btn.dataset.day===sel);
+        const dg=dayGroups[+btn.dataset.day];
+        const col=isAll?'#334155':(dg?dg.color:'#334155');
+        btn.style.borderColor=col; btn.style.background=active?col:'white'; btn.style.color=active?'white':col;
+      });
+    }
+
+    window._mapFilterClick = btn => { const d=btn.dataset.day; applyFilter(d==='all'?-1:+d); };
+
+    if(filterEl){
+      const btns=[{label:'Tous',day:'all',color:'#334155',locked:false}];
+      dayGroups.forEach((dg,i)=>btns.push({label:`J${dg.day.jour}`,day:i,color:dg.color,locked:dg.locked}));
+      filterEl.innerHTML=btns.map(b=>b.locked
+        ?`<button class="map-day-btn" style="border-color:#cbd5e1;color:#94a3b8;opacity:.6;" onclick="showPaywall('Les jours suivants sont réservés aux membres Pro.')">🔒 J${dayGroups[b.day]?.day.jour||''}</button>`
+        :`<button class="map-day-btn active" data-day="${b.day}" style="border-color:${b.color};color:${b.color};" onclick="window._mapFilterClick(this)">${b.label}</button>`
+      ).join('');
+    }
+
+    if(legendEl) legendEl.innerHTML=
+      `<div class="map-legend-item"><div class="map-legend-dot" style="background:${HOTEL_COLOR}"></div><span>🏨 Hébergements</span></div>
+       <div class="map-legend-item"><div class="map-legend-dot" style="background:${RESTO_COLOR}"></div><span>🍽️ Restaurants</span></div>`+
+      dayGroups.filter(dg=>!dg.locked).map(dg=>`<div class="map-legend-item"><div class="map-legend-dot" style="background:${dg.color}"></div><span>Jour ${dg.day.jour} · ${dg.day.titre||''}</span></div>`).join('');
+  }
+
+  function buildLeafletMap(data) {
     const mapEl = document.getElementById('tripMap');
     const legendEl = document.getElementById('mapLegend');
     const filterEl = document.getElementById('mapDayFilter');
@@ -2433,4 +2579,3 @@
 </script>
 </body>
 </html>
-                                                                                                                                                                                                                                                               

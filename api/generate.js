@@ -201,7 +201,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
             { role: 'user', content: prompt }
           ],
           temperature: 0.7,
-          max_tokens: 32768
+          max_tokens: 8192
         })
       });
     };
@@ -237,6 +237,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       const groqRes = await callGroq();
       if (!groqRes.ok) {
         const groqErr = await groqRes.json().catch(() => ({}));
+        console.error('Groq error:', groqRes.status, JSON.stringify(groqErr).slice(0, 300));
         await notifyDiscord(`🚨 **Ask2Trip — Groq aussi en échec** (${groqRes.status})\n\`${JSON.stringify(groqErr).slice(0,200)}\``);
         throw new Error('Tous les services IA sont temporairement indisponibles. Réessaie dans quelques minutes ⏳');
       }
@@ -340,3 +341,4 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     return res.status(500).json({ error: err.message || 'Erreur lors de la génération.' });
   }
 };
+                                                                                   
