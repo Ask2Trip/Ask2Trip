@@ -494,6 +494,17 @@
     }
     .btn-link:hover { background:var(--primary); color:white; border-color:var(--primary); }
 
+    .activity-toggle {
+      display:inline-flex; align-items:center; gap:5px;
+      margin-top:8px; padding:4px 10px;
+      background:transparent; border:1px solid var(--border-light);
+      border-radius:20px; font-size:12px; color:var(--text-muted);
+      cursor:pointer; transition:all 0.15s; font-family:Inter,sans-serif;
+    }
+    .activity-toggle:hover { background:var(--primary-50); color:var(--primary); border-color:var(--primary-light); }
+    .activity-details { display:none; margin-top:10px; }
+    .activity-details.open { display:block; }
+
     /* ── HOTELS ───────────────────────────────────── */
     .hotel-card {
       background:white; border-radius:var(--radius);
@@ -1224,12 +1235,24 @@
   }
 
   function isBookableActivity(act) {
-    const skip = ['vol ', 'vols ', 'flight', 'transfert', 'trajet', 'transport', 'check-in', 'check in',
+    const skip = [
+      // Transport
+      'vol ', 'vols ', 'flight', 'transfert', 'trajet', 'transport', 'check-in', 'check in',
       'check-out', 'check out', 'installation', 'arrivée', 'départ', 'retour à', 'prise en charge',
       'navette', 'taxi', 'ferry', 'train ', 'bus ', 'aéroport', 'embarquement', 'débarquement',
-      'hébergement', 'hôtel', 'repos', 'temps libre', 'nuit à', 'soirée libre', 'fin du voyage',
+      // Hébergement
+      'hébergement', 'hôtel', 'hotel', 'repos', 'temps libre', 'nuit à', 'soirée libre', 'fin du voyage',
+      // Repas & boissons
       'déjeuner', 'dîner', 'diner', 'petit-déjeuner', 'petit déjeuner', 'brunch', 'pique-nique',
-      'pause', 'café', 'restaurant', 'snack', 'apéritif', 'collation'];
+      'pause', 'café', 'restaurant', 'snack', 'apéritif', 'collation', 'dégustation de', 'repas',
+      // Marchés & shopping libre
+      'marché', 'marche ', 'halles', 'souk', 'bazar', 'braderie',
+      // Balades / promenades libres
+      'balade', 'promenade', 'flânerie', 'flanerie', 'exploration libre', 'visite libre',
+      'temps libre', 'shopping', 'détente', 'plage', 'farniente',
+      // Générique
+      'retour', 'départ de', 'fin de',
+    ];
     const n = ((act && act.activite) || '').toLowerCase();
     return !skip.some(kw => n.includes(kw));
   }
@@ -1238,10 +1261,12 @@
     return '⭐'.repeat(Math.min(5, Math.max(1, n)));
   }
 
-  function bookingLink(hotelName, destination) {
+  function bookingLink(hotelName, destination, checkin, checkout) {
     const q = encodeURIComponent((hotelName || '') + ' ' + (destination || ''));
-    // TODO: ajouter &aid=VOTRE_AID une fois approuvé sur CJ Affiliate
-    return `https://www.booking.com/search.html?ss=${q}&lang=fr`;
+    const ci = checkin || '';
+    const co = checkout || '';
+    const dates = ci && co ? `&checkin=${ci}&checkout=${co}` : '';
+    return `https://www.booking.com/search.html?ss=${q}&lang=fr${dates}`;
   }
 
   function gygLink(activityName, destination) {
@@ -1474,7 +1499,7 @@
               </div>
               <div class="hotel-desc">${h.description || ''}</div>
               <div class="hotel-price">${h.prix_nuit || '—'} <span>/ nuit</span></div>
-              <a href="${bookingLink(h.nom, destination)}" target="_blank" class="btn-book">🏨 Voir sur Booking.com →</a>
+              <a href="${bookingLink(h.nom, destination, dateDebut, dateFin)}" target="_blank" class="btn-book">🏨 Voir sur Booking.com →</a>
             </div>
           </div>
         `}).join('')}
@@ -2253,14 +2278,14 @@
       if (!h.lat || !h.lng) return;
       L.marker([+h.lat, +h.lng], { icon: makeIcon('🏨', HOTEL_COLOR, 30) })
         .addTo(permanentLayer)
-        .bindPopup(`<div style="min-width:160px"><strong>${h.nom}</strong><br><small style="color:#64748b">${h.quartier||''} · ${h.prix_nuit||''}/nuit</small><br><span style="font-size:12px;display:block;margin-top:4px">${h.description||''}</span></div>`, { maxWidth: 220 });
+        .bindPopup(`<div style="min-width:180px"><strong>${h.nom}</strong><br><small style="color:#64748b">${h.quartier||''} · ${h.prix_nuit||''}/nuit</small><br><span style="font-size:12px;display:block;margin-top:4px">${h.description||''}</span><a href="https://www.google.com/maps?q=${h.lat},${h.lng}" target="_blank" style="display:inline-block;margin-top:8px;font-size:12px;color:#4285f4;font-weight:600;text-decoration:none;">📍 Google Maps →</a></div>`, { maxWidth: 260 });
     });
 
     (data.restaurants || []).forEach(r => {
       if (!r.lat || !r.lng) return;
       L.marker([+r.lat, +r.lng], { icon: makeIcon('🍽', RESTO_COLOR, 28) })
         .addTo(permanentLayer)
-        .bindPopup(`<div style="min-width:160px"><strong>${r.nom}</strong><br><small style="color:#64748b">${r.type||''} · ${r.prix||''} · ${r.quartier||''}</small><br><span style="font-size:12px;display:block;margin-top:4px">${r.description||''}</span></div>`, { maxWidth: 220 });
+        .bindPopup(`<div style="min-width:180px"><strong>${r.nom}</strong><br><small style="color:#64748b">${r.type||''} · ${r.prix||''} · ${r.quartier||''}</small><br><span style="font-size:12px;display:block;margin-top:4px">${r.description||''}</span><a href="https://www.google.com/maps?q=${r.lat},${r.lng}" target="_blank" style="display:inline-block;margin-top:8px;font-size:12px;color:#4285f4;font-weight:600;text-decoration:none;">📍 Google Maps →</a></div>`, { maxWidth: 260 });
     });
 
     // Couches par jour : markers + polyligne
@@ -2284,7 +2309,7 @@
         const markerIcon = makeIcon(String(aIdx + 1), color, 30);
         L.marker(coords, { icon: markerIcon })
           .addTo(group)
-          .bindPopup(`<div style="min-width:180px"><strong>${act.activite}</strong><br><small style="color:#64748b">Jour ${day.jour} · ${act.heure||''}</small><br><span style="font-size:12px;line-height:1.4;display:block;margin-top:4px">${act.description||''}</span></div>`, { maxWidth: 240 });
+          .bindPopup(`<div style="min-width:180px"><strong>${act.activite}</strong><br><small style="color:#64748b">Jour ${day.jour} · ${act.heure||''}</small><br><span style="font-size:12px;line-height:1.4;display:block;margin-top:4px">${act.description||''}</span><a href="https://www.google.com/maps?q=${act.lat},${act.lng}" target="_blank" style="display:inline-block;margin-top:8px;font-size:12px;color:#4285f4;font-weight:600;text-decoration:none;">📍 Google Maps →</a></div>`, { maxWidth: 260 });
       });
 
       // Polyligne pointillée reliant les activités du jour
