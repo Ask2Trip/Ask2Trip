@@ -1413,6 +1413,7 @@
         <button class="tab-btn" onclick="switchTab('restaurants', this)">🍽️ Restaurants</button>
         <button class="tab-btn" onclick="switchTab('budget', this)">💰 Budget</button>
         <button class="tab-btn" onclick="switchTab('pratique', this)">📋 Infos pratiques</button>
+        <button class="tab-btn" onclick="switchTab('gyg', this)">🎟️ Activités</button>
       </div>
 
       <!-- ITINÉRAIRE -->
@@ -1601,6 +1602,15 @@
             `).join('')}
           </div>
         ` : ''}
+      </div>
+
+      <!-- ACTIVITÉS GYG -->
+      <div class="tab-content" id="tab-gyg">
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">Activités et expériences disponibles à ${destination.split(',')[0].trim()}. Réservez directement via GetYourGuide.</p>
+        <h3 style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:16px;">🎟️ Activités recommandées</h3>
+        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="3" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()}"></div>
+        <h3 style="font-size:16px;font-weight:600;color:var(--text);margin:32px 0 16px;">🏙️ Explorer la destination</h3>
+        <div data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="6" data-gyg-partner-id="SBFA8QU" data-gyg-q="${destination.split(',')[0].trim()} visite guidée excursion"></div>
       </div>
 
     `;
@@ -2543,39 +2553,4 @@
             <div style="font-size:15px;font-weight:700;margin-bottom:8px;">🔒 ${totalDays - visibleDays} jour${totalDays - visibleDays > 1 ? 's' : ''} masqué${totalDays - visibleDays > 1 ? 's' : ''}</div>
             <div style="font-size:13px;opacity:0.75;margin-bottom:14px;">La carte complète est réservée aux membres Pro</div>
             <button onclick="showPaywall('Débloquez la carte complète et toutes les fonctionnalités Pro.')"
-              style="padding:10px 20px;background:#6366f1;color:white;border:none;border-radius:100px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
-              ✨ Débloquer Pro — 9,99€
-            </button>
-          </div>`;
-        mapEl.style.position = 'relative';
-        mapEl.appendChild(overlay);
-      }
-
-      window._mapFilterClick = function(btn) {
-        const val = btn.dataset.day;
-        applyFilter(val === 'all' ? -1 : +val);
-      };
-
-      // Activer "Tous" par défaut
-      applyFilter(-1);
-    }
-
-    // Légende
-    if (legendEl) {
-      const dayItems = dayGroups.map((d, i) => `
-        <div class="map-legend-item">
-          <div class="map-legend-dot" style="background:${d.color}"></div>
-          <span>Jour ${d.day.jour}${d.day.titre ? ' — ' + d.day.titre : ''}</span>
-        </div>`).join('');
-      legendEl.innerHTML = dayItems + `
-        <div class="map-legend-item" style="margin-left:auto">
-          <div class="map-legend-dot" style="background:${HOTEL_COLOR}"></div><span>🏨 Hébergements</span>
-        </div>
-        <div class="map-legend-item">
-          <div class="map-legend-dot" style="background:${RESTO_COLOR}"></div><span>🍽️ Restaurants</span>
-        </div>`;
-    }
-  }
-</script>
-</body>
-</html>
+              style="padding:10px 20px;background:#6366f1;color:white;border:none;border-radius:100px;font-size:14px;font-w
