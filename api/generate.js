@@ -337,7 +337,6 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     if (!err.message.includes('surchargé')) {
       await notifyDiscord(`🚨 **Ask2Trip — erreur inattendue dans generate.js**\n\`${(err.message || '').slice(0,200)}\``);
     }
-    const isUserError = (err.message || '').includes('indisponible') || (err.message || '').includes('surchargé') || (err.message || '').includes('Pro');
-    return res.status(isUserError ? 200 : 500).json({ error: err.message || 'Erreur lors de la génération.' });
+    return res.status(500).json({ error: err.message || 'Erreur lors de la génération.' });
   }
 };

@@ -1192,6 +1192,7 @@
         throw new Error(errData.error || 'Erreur serveur');
       }
       const data = await response.json();
+      if (data.error) throw new Error(data.error);
 
       stopLoadingAnimation();
       incrementUsage();
