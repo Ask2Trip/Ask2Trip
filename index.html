@@ -813,6 +813,19 @@
       #tripMap { height:360px; }
       .tabs { padding:4px; }
       .tab-btn { font-size:12px; padding:9px 10px; min-width:80px; }
+      /* Activités mobile */
+      .day-header { padding:14px 16px; gap:10px; }
+      .day-title { font-size:14px; }
+      .day-date { font-size:12px; }
+      .activity { padding:14px 16px; gap:10px; flex-wrap:wrap; }
+      .activity-row1 { width:100%; flex-wrap:wrap; gap:6px; }
+      .activity-name { font-size:14px; }
+      .activity-time { font-size:11px; padding:3px 8px; }
+      .activity-tags { width:100%; margin-top:2px; }
+      .activity-toggle { margin-top:6px; }
+      .activity-details { width:100%; overflow-x:hidden; }
+      .activity-details [data-gyg-widget] { max-width:100%; overflow:hidden; }
+      .activity-desc { font-size:13px; }
     }
     @media (max-width:600px) {
       :root { --nav-h:56px; }
@@ -823,12 +836,22 @@
       .paywall-plans { grid-template-columns:1fr; }
       .footer-inner { flex-direction:column; align-items:flex-start; gap:16px; }
       .result-meta { gap:6px; }
+      /* Activités petit mobile */
+      .day-header { padding:12px 14px; }
+      .day-number { width:32px; height:32px; font-size:13px; border-radius:10px; }
+      .activity { padding:12px 14px; }
+      .activity-name { font-size:13px; }
+      .activity-details { margin-top:8px; }
+      .activity-details [data-gyg-widget] { transform-origin:top left; font-size:13px; }
     }
     @media (max-width:480px) {
       .resto-grid { grid-template-columns:1fr; }
       .budget-grid { grid-template-columns:repeat(2,1fr); }
       .nav-logo span { display:none; }
       .tab-btn { font-size:11px; padding:8px 8px; }
+      .day-card { margin-bottom:12px; }
+      .activity { padding:10px 12px; }
+      .activity-toggle { font-size:11px; padding:3px 9px; }
     }
   </style>
 </head>
