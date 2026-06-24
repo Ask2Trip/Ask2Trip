@@ -1470,10 +1470,6 @@
                 h+='<button class="activity-toggle" onclick="var d=this.nextElementSibling;d.classList.toggle(\'open\');this.textContent=d.classList.contains(\'open\')?\'▲ Masquer\':\'▼ Voir détails\'">▼ Voir détails</button>'
                   +'<div class="activity-details">'
                   +(act.description?'<div class="activity-desc">'+act.description+'</div>':'')
-                  +(isBookableActivity(act)?(function(){
-                    var q=encodeURIComponent((act.activite||'')+' '+(destination.split(',')[0]||'')).replace(/%20/g,'+');
-                    return '<div style="margin-top:14px;" data-gyg-href="https://widget.getyourguide.com/default/activities.frame" data-gyg-locale-code="fr-FR" data-gyg-widget="activities" data-gyg-number-of-items="3" data-gyg-partner-id="SBFA8QU" data-gyg-q="'+q+'"></div>';
-                  })():'')
                   +'</div>';
               }
               h+='</div>';
