@@ -169,9 +169,10 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    // gemini-2.0-flash et gemini-1.5-flash sont retirés par Google (404) depuis juin 2026.
-    // gemini-3.5-flash (sorti le 19/05/2026) remplace 2.0-flash comme fallback.
-    const MODELS = [
+    const groqKey = process.env.GROQ_API_KEY;
+
+    // Gemini : 2.5-flash (primaire) → 3.5-flash (fallback) → Groq llama-3.3-70b (gratuit, illimité)
+    const GEMINI_MODELS = [
       { model: 'gemini-2.5-flash', version: 'v1beta' },
       { model: 'gemini-3.5-flash', version: 'v1beta' }
     ];
@@ -189,10 +190,27 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       return r;
     };
 
-    let geminiRes = await callGemini(MODELS[0]);
+    const callGroq = async () => {
+      return fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: 'Tu es un expert en planification de voyages. Réponds UNIQUEMENT avec du JSON valide, sans texte avant ni après, sans balises markdown.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 32768
+        })
+      });
+    };
+
+    // ── Try Gemini models ──────────────────────────────────────────────────────
+    let geminiRes = apiKey ? await callGemini(GEMINI_MODELS[0]) : null;
 
     // Fallback sur les modèles suivants si surchargé, quota dépassé ou erreur
-    for (let i = 1; i < MODELS.length && !geminiRes.ok && [429, 500, 503].includes(geminiRes.status); i++) {
+    for (let i = 1; geminiRes && i < GEMINI_MODELS.length && !geminiRes.ok && [400, 404, 429, 500, 503].includes(geminiRes.status); i++) {
       console.log(`${MODELS[i-1].model} indisponible (${geminiRes.status}), fallback sur ${MODELS[i].model}`);
       await notifyDiscord(`⚠️ **Ask2Trip** — \`${MODELS[i-1].model}\` indisponible (${geminiRes.status}), fallback sur \`${MODELS[i].model}\`. Surveille si ça se reproduit souvent → quota bientôt épuisé.`);
       await new Promise(r => setTimeout(r, 1000));
@@ -203,15 +221,30 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       const errData = await geminiRes.json().catch(() => ({}));
       const msg = errData.error?.message || '';
       const isQuota = msg.toLowerCase().includes('quota') || geminiRes.status === 429;
-      await notifyDiscord(`🚨 **Ask2Trip — TOUS les modèles ont échoué** (dernier statut: ${geminiRes.status})\n${isQuota ? '⚠️ QUOTA GEMINI ÉPUISÉ — un utilisateur vient d\'avoir une erreur.' : ''}\n\`${msg.slice(0,200)}\``);
-      if (isQuota) {
-        throw new Error('Le service IA est temporairement surchargé. Réessaie dans quelques minutes ⏳');
-      }
-      throw new Error(msg || `Erreur IA (${geminiRes.status})`);
+      await notifyDiscord(`🚨 **Ask2Trip — tous les modèles Gemini ont échoué** (${geminiRes.status}), tentative Groq...\n\`${msg.slice(0,200)}\``);
+      geminiRes = null; // force fallback Groq
     }
 
-    const geminiData = await geminiRes.json();
-    const rawText = geminiData.candidates[0].content.parts[0].text.trim();
+    // ── Extraction du texte brut selon le provider ───────────────────────────
+    let rawText;
+    if (geminiRes && geminiRes.ok) {
+      const geminiData = await geminiRes.json();
+      rawText = geminiData.candidates[0].content.parts[0].text.trim();
+    } else if (groqKey) {
+      // Groq : gratuit, 14 400 requêtes/jour, modèle Llama 3.3 70B
+      console.log('Fallback Groq llama-3.3-70b-versatile');
+      await notifyDiscord('⚠️ **Ask2Trip** — Gemini indisponible, fallback Groq activé.');
+      const groqRes = await callGroq();
+      if (!groqRes.ok) {
+        const groqErr = await groqRes.json().catch(() => ({}));
+        await notifyDiscord(`🚨 **Ask2Trip — Groq aussi en échec** (${groqRes.status})\n\`${JSON.stringify(groqErr).slice(0,200)}\``);
+        throw new Error('Tous les services IA sont temporairement indisponibles. Réessaie dans quelques minutes ⏳');
+      }
+      const groqData = await groqRes.json();
+      rawText = groqData.choices[0].message.content.trim();
+    } else {
+      throw new Error('Service IA indisponible. Réessaie dans quelques minutes ⏳');
+    }
 
     const clean = rawText
       .replace(/^```json\n?/, '')
@@ -225,23 +258,34 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     const placesKey = process.env.GOOGLE_PLACES_API_KEY;
     const pixabayKey = process.env.PIXABAY_API_KEY;
 
-    const getPlacesPhoto = async (name, city) => {
-      if (!placesKey) return null;
+    // getPlacesData : photo + coordonnées GPS précises en un seul appel API
+    const getPlacesData = async (query, opts = {}) => {
+      if (!placesKey) return { photo_url: null, lat: null, lng: null };
       try {
+        const mask = opts.noPhoto ? 'places.location' : 'places.photos,places.location';
         const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': placesKey,
-            'X-Goog-FieldMask': 'places.photos'
+            'X-Goog-FieldMask': mask
           },
-          body: JSON.stringify({ textQuery: `${name} ${city}`, languageCode: 'fr' })
+          body: JSON.stringify({ textQuery: query, languageCode: 'fr' })
         });
         const sd = await searchRes.json();
-        const photoName = sd.places?.[0]?.photos?.[0]?.name;
-        if (!photoName) return null;
-        return `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=400&key=${placesKey}`;
-      } catch { return null; }
+        const place = sd.places?.[0];
+        const photoName = place?.photos?.[0]?.name;
+        const lat = place?.location?.latitude ?? null;
+        const lng = place?.location?.longitude ?? null;
+        const photo_url = photoName
+          ? `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=400&key=${placesKey}`
+          : null;
+        return { photo_url, lat, lng };
+      } catch { return { photo_url: null, lat: null, lng: null }; }
+    };
+    const getPlacesPhoto = async (name, city) => {
+      const d = await getPlacesData(`${name} ${city}`);
+      return d.photo_url;
     };
 
     const getPixabayPhoto = async (query, category) => {
@@ -261,6 +305,20 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       if (placesUrl) return placesUrl;
       return getPixabayPhoto(fallbackQuery, category);
     };
+
+    // Géocodage précis des activités via Google Places (corrige les coords IA souvent imprécises)
+    if (placesKey && data.itineraire) {
+      const geocodeAct = async (act) => {
+        try {
+          const d = await getPlacesData(`${act.activite} ${destination}`, { noPhoto: true });
+          if (d.lat && d.lng) { act.lat = d.lat; act.lng = d.lng; }
+        } catch {}
+        return act;
+      };
+      for (const day of data.itineraire) {
+        day.activites = await Promise.all((day.activites || []).map(geocodeAct));
+      }
+    }
 
     // Photos restaurants uniquement (Pixabay category=food = pertinent)
     // Hôtels : pas de photo Pixabay (jamais le bon hôtel) → dégradé coloré affiché à la place

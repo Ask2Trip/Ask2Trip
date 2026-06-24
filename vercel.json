@@ -3,6 +3,7 @@
   "builds": [
     { "src": "api/generate.js", "use": "@vercel/node" },
     { "src": "api/verify-license.js", "use": "@vercel/node" },
+    { "src": "api/verify-payment.js", "use": "@vercel/node" },
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "favicon.ico", "use": "@vercel/static" },
     { "src": "favicon-32.png", "use": "@vercel/static" },
@@ -16,6 +17,7 @@
   "routes": [
     { "src": "/api/generate", "dest": "/api/generate.js" },
     { "src": "/api/verify-license", "dest": "/api/verify-license.js" },
+    { "src": "/api/verify-payment", "dest": "/api/verify-payment.js" },
     { "src": "/favicon.ico", "dest": "/favicon.ico" },
     { "src": "/favicon-32.png", "dest": "/favicon-32.png" },
     { "src": "/favicon-192.png", "dest": "/favicon-192.png" },
