@@ -174,7 +174,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     // Gemini : 2.5-flash (primaire) → 3.5-flash (fallback) → Groq llama-3.3-70b (gratuit, illimité)
     const GEMINI_MODELS = [
       { model: 'gemini-2.5-flash', version: 'v1beta' },
-      { model: 'gemini-3.5-flash', version: 'v1beta' }
+      { model: 'gemini-1.5-flash', version: 'v1beta' }
     ];
 
     const callGemini = async ({ model, version }) => {
@@ -341,4 +341,3 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     return res.status(500).json({ error: err.message || 'Erreur lors de la génération.' });
   }
 };
-                                                                                   
