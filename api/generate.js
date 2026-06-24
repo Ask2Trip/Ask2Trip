@@ -171,7 +171,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     const apiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
 
-    // Chaîne : gemini-2.5-flash-lite → groq llama-3.1-8b → gemini-2.5-flash (dernier recours payant)
+    // Chaîne : gemini-2.5-flash-lite → groq llama-3.3-70b → gemini-2.5-flash (dernier recours payant)
     const GEMINI_PRIMARY = { model: 'gemini-2.5-flash-lite', version: 'v1beta' };
     const GEMINI_FALLBACK = { model: 'gemini-2.5-flash', version: 'v1beta' };
     const GEMINI_MODELS = [GEMINI_PRIMARY]; // pour compatibilité boucle
@@ -194,7 +194,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: 'Tu es un expert en planification de voyages. Réponds UNIQUEMENT avec du JSON valide, sans texte avant ni après, sans balises markdown.' },
             { role: 'user', content: prompt }
@@ -224,7 +224,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       rawText = geminiData.candidates[0].content.parts[0].text.trim();
     } else if (groqKey) {
       // 2. Groq llama-3.1-8b (gratuit, cheap)
-      console.log('Fallback Groq llama-3.1-8b-instant');
+      console.log('Fallback Groq llama-3.3-70b-versatile');
       await notifyDiscord('⚠️ **Ask2Trip** — Gemini lite indisponible, fallback Groq activé.');
       const groqRes = await callGroq();
       if (groqRes.ok) {
