@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
   <link rel="apple-touch-icon" href="/favicon-192.png" />
+  <script defer src="/_vercel/insights/script.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <!-- Leaflet map -->
@@ -1729,8 +1730,18 @@
     updateCounter();
   }
 
+  function _setProCookie() {
+    document.cookie = 'a2t_pro=UNLOCKED; max-age=31536000; path=/; SameSite=Strict';
+  }
   function isPro() {
-    return localStorage.getItem('a2t_pro') === 'UNLOCKED';
+    if (localStorage.getItem('a2t_pro') === 'UNLOCKED') return true;
+    // Fallback cookie (persiste même si localStorage est vidé sur mobile)
+    const cookie = document.cookie.split(';').find(c => c.trim().startsWith('a2t_pro='));
+    if (cookie && cookie.includes('UNLOCKED')) {
+      localStorage.setItem('a2t_pro', 'UNLOCKED'); // resync localStorage
+      return true;
+    }
+    return false;
   }
 
   function remaining() {
@@ -2186,6 +2197,7 @@
       if (data.valid) {
         localStorage.setItem('a2t_pro', 'UNLOCKED');
         localStorage.setItem('a2t_license', isEmail ? 'stripe-email:' + key : key);
+        _setProCookie();
         msg.style.color = '#10b981';
         msg.textContent = '✅ Pro activé ! Générations illimitées débloquées.';
         updateCounter();
@@ -2250,6 +2262,7 @@
       if (d.valid) {
         localStorage.setItem('a2t_pro', 'UNLOCKED');
         localStorage.setItem('a2t_license', 'stripe:' + sid);
+        _setProCookie();
         window.history.replaceState({}, '', window.location.pathname);
         alert('✅ Paiement confirmé ! Bienvenue dans Ask2Trip Pro 🎉');
       }
