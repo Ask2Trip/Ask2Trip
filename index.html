@@ -1731,7 +1731,7 @@
   }
 
   function _setProCookie() {
-    document.cookie = 'a2t_pro=UNLOCKED; max-age=31536000; path=/; SameSite=Strict';
+    document.cookie = 'a2t_pro=UNLOCKED; max-age=31536000; path=/; SameSite=Lax';
   }
   function isPro() {
     if (localStorage.getItem('a2t_pro') === 'UNLOCKED') return true;
