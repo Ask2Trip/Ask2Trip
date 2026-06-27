@@ -205,7 +205,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message })
+        body: JSON.stringify({ content: `<@506796545845493770> ${message}` })
       });
     } catch (e) { /* ne jamais faire échouer la requête pour une alerte */ }
   };
