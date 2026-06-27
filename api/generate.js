@@ -214,14 +214,12 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
     const apiKey = process.env.GEMINI_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
 
-    // Chaîne : gemini-2.5-flash-lite → groq llama-3.3-70b → gemini-2.5-flash (dernier recours payant)
-    const GEMINI_PRIMARY = { model: 'gemini-2.5-flash-lite', version: 'v1beta' };
-    const GEMINI_FALLBACK = { model: 'gemini-2.5-flash', version: 'v1beta' };
-    const GEMINI_MODELS = [GEMINI_PRIMARY]; // pour compatibilité boucle
+    // Chaîne : gemini-2.5-flash (free tier) → gemini-2.5-flash-lite (payant, pas cher) → groq (gratuit, dernier recours)
+    const FALLBACK_STATUSES = [429, 500, 503, 400, 404];
 
-    const callGemini = async ({ model, version }) => {
-      const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
-      const r = await fetch(url, {
+    const callGemini = async (model) => {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      return fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -229,7 +227,6 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
           generationConfig: { temperature: 0.7, maxOutputTokens: 65536 }
         })
       });
-      return r;
     };
 
     const callGroq = async () => {
@@ -248,60 +245,52 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ni après, sans balise
       });
     };
 
-    // ── Try Gemini models ──────────────────────────────────────────────────────
-    let geminiRes = apiKey ? await callGemini(GEMINI_MODELS[0]) : null;
+    const extractGemini = async (res) => {
+      const d = await res.json();
+      return d.candidates[0].content.parts[0].text.trim();
+    };
 
-    // Fallback sur les modèles suivants si surchargé, quota dépassé ou erreur
-    for (let i = 1; geminiRes && i < GEMINI_MODELS.length && !geminiRes.ok && [400, 404, 429, 500, 503].includes(geminiRes.status); i++) {
-      console.log(`${GEMINI_MODELS[i-1].model} indisponible (${geminiRes.status}), fallback sur ${GEMINI_MODELS[i].model}`);
-      await notifyDiscord(`⚠️ **Ask2Trip** — \`${GEMINI_MODELS[i-1].model}\` indisponible (${geminiRes.status}), fallback sur \`${GEMINI_MODELS[i].model}\`. Surveille si ça se reproduit souvent → quota bientôt épuisé.`);
-      await new Promise(r => setTimeout(r, 1000));
-      geminiRes = await callGemini(GEMINI_MODELS[i]);
-    }
-
-    // ── Extraction du texte brut selon le provider ───────────────────────────
+    // ── 1. Gemini 2.5 Flash — free tier ────────────────────────────────────────
     let rawText;
-    if (geminiRes && geminiRes.ok) {
-      // 1. Gemini 2.5-flash-lite OK
-      const geminiData = await geminiRes.json();
-      rawText = geminiData.candidates[0].content.parts[0].text.trim();
-    } else if (groqKey) {
-      // 2. Groq llama-3.1-8b (gratuit, cheap)
-      console.log('Fallback Groq llama-3.3-70b-versatile');
-      await notifyDiscord('⚠️ **Ask2Trip** — Gemini lite indisponible, fallback Groq activé.');
-      const groqRes = await callGroq();
-      if (groqRes.ok) {
-        const groqData = await groqRes.json();
-        rawText = groqData.choices[0].message.content.trim();
-      } else {
-        // 3. Gemini 2.5-flash (dernier recours — payant mais fiable)
-        const groqErr = await groqRes.json().catch(() => ({}));
-        console.error('Groq error:', groqRes.status, JSON.stringify(groqErr).slice(0, 300));
-        await notifyDiscord(`⚠️ **Ask2Trip** — Groq aussi en échec (${groqRes.status}), tentative gemini-2.5-flash...`);
-        if (apiKey) {
-          const flashRes = await callGemini(GEMINI_FALLBACK);
-          if (flashRes.ok) {
-            const flashData = await flashRes.json();
-            rawText = flashData.candidates[0].content.parts[0].text.trim();
-          } else {
-            await notifyDiscord('🚨 **Ask2Trip** — tous les services IA ont échoué.');
-            throw new Error('Tous les services IA sont temporairement indisponibles. Réessaie dans quelques minutes ⏳');
-          }
+    let res1 = apiKey ? await callGemini('gemini-2.5-flash') : null;
+
+    if (res1 && res1.ok) {
+      rawText = await extractGemini(res1);
+
+    // ── 2. Gemini 2.5 Flash Lite — payant (quota free dépassé) ─────────────────
+    } else if (apiKey) {
+      const status1 = res1?.status;
+      console.log(`gemini-2.5-flash indisponible (${status1}), fallback gemini-2.5-flash-lite`);
+      await notifyDiscord(`⚠️ **Ask2Trip** — \`gemini-2.5-flash\` free tier épuisé (${status1}) → bascule sur \`gemini-2.5-flash-lite\` (payant). Surveille ta conso Google AI.`);
+
+      await new Promise(r => setTimeout(r, 800));
+      const res2 = await callGemini('gemini-2.5-flash-lite');
+
+      if (res2.ok) {
+        rawText = await extractGemini(res2);
+
+      // ── 3. Groq llama-3.3-70b — gratuit, dernier recours ───────────────────
+      } else if (groqKey) {
+        const status2 = res2.status;
+        console.log(`gemini-2.5-flash-lite indisponible (${status2}), fallback Groq`);
+        await notifyDiscord(`🚨 **Ask2Trip** — \`gemini-2.5-flash-lite\` aussi en échec (${status2}) → bascule sur Groq. Les deux quotas Gemini sont dépassés, vérifie ta facturation Google AI.`);
+
+        await new Promise(r => setTimeout(r, 800));
+        const res3 = await callGroq();
+
+        if (res3.ok) {
+          const d = await res3.json();
+          rawText = d.choices[0].message.content.trim();
         } else {
+          await notifyDiscord('🔴 **Ask2Trip** — tous les services IA ont échoué (Flash + Lite + Groq). Site hors service IA.');
           throw new Error('Tous les services IA sont temporairement indisponibles. Réessaie dans quelques minutes ⏳');
         }
-      }
-    } else if (apiKey) {
-      // Groq key absente → direct gemini-2.5-flash
-      const flashRes = await callGemini(GEMINI_FALLBACK);
-      if (flashRes.ok) {
-        const flashData = await flashRes.json();
-        rawText = flashData.candidates[0].content.parts[0].text.trim();
       } else {
+        await notifyDiscord('🔴 **Ask2Trip** — Flash + Lite en échec, pas de clé Groq configurée.');
         throw new Error('Service IA indisponible. Réessaie dans quelques minutes ⏳');
       }
     } else {
-      throw new Error('Service IA indisponible. Réessaie dans quelques minutes ⏳');
+      throw new Error('Service IA indisponible (clé API manquante). Réessaie dans quelques minutes ⏳');
     }
 
     const clean = rawText
