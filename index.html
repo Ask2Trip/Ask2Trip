@@ -1358,7 +1358,7 @@
     const ci = checkin || '';
     const co = checkout || '';
     const dates = ci && co ? `&checkin=${ci}&checkout=${co}` : '';
-    return `https://www.booking.com/search.html?ss=${q}&lang=fr${dates}`;
+    return `https://www.booking.com/searchresults.html?ss=${q}&lang=fr${dates}`;
   }
 
   function gygLink(activityName, destination) {

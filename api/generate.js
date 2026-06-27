@@ -1,9 +1,41 @@
+// ── Rate limiting en mémoire (reset à chaque cold start Vercel) ──────────────
+const rateLimitMap = new Map();
+const RATE_LIMIT = 5;       // max requêtes par IP
+const RATE_WINDOW = 3600000; // fenêtre : 1 heure
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip) || { count: 0, resetAt: now + RATE_WINDOW };
+  if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + RATE_WINDOW; }
+  entry.count++;
+  rateLimitMap.set(ip, entry);
+  return entry.count <= RATE_LIMIT;
+}
+
+// Nettoyage périodique pour éviter les fuites mémoire
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetAt) rateLimitMap.delete(ip);
+  }
+}, 3600000);
+
+const ALLOWED_ORIGINS = ['https://ask2trip.fr', 'https://www.ask2trip.fr', 'https://ask2trip.vercel.app'];
+
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers['origin'] || '';
+  const corsOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : 'https://www.ask2trip.fr';
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // ── Rate limiting ──────────────────────────────────────────────────────────
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Trop de requêtes. Réessaie dans une heure.' });
+  }
 
   const { destination, depart, dateDebut, dateFin, budget, voyageurs, interets } = req.body;
 
@@ -11,10 +43,21 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Champs manquants' });
   }
 
+  // ── Validation et sanitisation des inputs ─────────────────────────────────
+  const sanitize = (s) => String(s || '').slice(0, 200).replace(/[<>]/g, '');
+  const sanitizedDestination = sanitize(destination);
+  const sanitizedDepart = sanitize(depart);
+  const sanitizedBudget = Math.min(Math.max(parseInt(budget) || 0, 0), 999999);
+  const sanitizedVoyageurs = Math.min(Math.max(parseInt(voyageurs) || 1, 1), 20);
+
+  if (!sanitizedDestination) {
+    return res.status(400).json({ error: 'Destination invalide' });
+  }
+
   const dateDebutObj = new Date(dateDebut);
   const dateFinObj = new Date(dateFin);
-  const nbJours = Math.round((dateFinObj - dateDebutObj) / 86400000);
-  const budgetParPersonne = Math.round(parseInt(budget) / parseInt(voyageurs || 1));
+  const nbJours = Math.min(Math.round((dateFinObj - dateDebutObj) / 86400000), 21);
+  const budgetParPersonne = Math.round(sanitizedBudget / sanitizedVoyageurs);
 
   const formatDate = (d) => d.toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
@@ -23,14 +66,14 @@ module.exports = async function handler(req, res) {
   const prompt = `Tu es un expert en planification de voyages avec 20 ans d'expérience. Crée un plan de voyage COMPLET, DÉTAILLÉ et PERSONNALISÉ.
 
 DONNÉES DU VOYAGE :
-- Destination : ${destination}
-- Ville de départ : ${depart || 'France'}
+- Destination : ${sanitizedDestination}
+- Ville de départ : ${sanitizedDepart || 'France'}
 - Date de départ : ${formatDate(dateDebutObj)}
 - Date de retour : ${formatDate(dateFinObj)}
 - Durée : ${nbJours} jours
-- Nombre de voyageurs : ${voyageurs || 2}
-- Budget TOTAL : ${budget}€ (soit ~${budgetParPersonne}€ par personne)
-- Centres d'intérêt : ${(interets || []).join(', ') || 'culture, gastronomie'}
+- Nombre de voyageurs : ${sanitizedVoyageurs}
+- Budget TOTAL : ${sanitizedBudget}€ (soit ~${budgetParPersonne}€ par personne)
+- Centres d'intérêt : ${(Array.isArray(interets) ? interets.slice(0,10) : []).map(i => sanitize(i)).join(', ') || 'culture, gastronomie'}
 
 IMPORTANT TRANSPORT : Analyse le trajet entre ${depart || 'France'} et ${destination} et détermine pour CHAQUE mode (avion, train, voiture) s'il est pertinent (pertinent: true/false) :
 - Pour un trajet DOMESTIQUE ou court (même pays, ou pays voisins bien connectés, ex: Grenoble → Disneyland Paris, Lyon → Barcelone) : l'avion est RAREMENT pertinent (mets pertinent=false avec la raison, sauf si la distance est vraiment grande comme un trajet transcontinental). Privilégie le train (mode_recommande="train") s'il existe une liaison directe ou avec peu de correspondances, sinon la voiture.
