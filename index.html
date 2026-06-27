@@ -2860,7 +2860,12 @@
 
 <script>
 // ── STICKY BANNER ──
-document.body.classList.add('has-banner');
+if (!isPro() && !_isPaymentContext) {
+  document.body.classList.add('has-banner');
+} else {
+  const sb = document.getElementById('stickyBanner');
+  if (sb) sb.style.display = 'none';
+}
 
 // ── COUNTDOWN FONDATEUR (24h rolling) ──
 function startFounderCountdown() {
@@ -2907,36 +2912,43 @@ function showFomoToast() {
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 4000);
 }
-setTimeout(() => { showFomoToast(); setInterval(showFomoToast, 35000); }, 8000);
+// Ne pas afficher les popups marketing si Pro ou si on revient de Stripe
+const _isPaymentContext = document.referrer.includes('stripe.com') || document.referrer.includes('buy.stripe.com') || new URLSearchParams(window.location.search).has('stripe_session');
+const _suppressMarketing = isPro() || _isPaymentContext;
+
+if (!_suppressMarketing) {
+  setTimeout(() => { showFomoToast(); setInterval(showFomoToast, 35000); }, 8000);
+}
 
 // ── EXIT INTENT (desktop: mouseleave / mobile: scroll up rapide + timer) ──
 let exitShown = false;
 function showExitIntent() {
-  if (exitShown || isPro()) return;
+  if (exitShown || isPro() || _isPaymentContext) return;
   exitShown = true;
   document.getElementById('exitOverlay').classList.add('open');
 }
-// Desktop
-document.addEventListener('mouseleave', function(e) {
-  if (e.clientY > 0) return;
-  showExitIntent();
-});
-// Mobile : scroll up rapide
-let lastScrollY = window.scrollY;
-let scrollUpStart = null;
-window.addEventListener('scroll', function() {
-  const current = window.scrollY;
-  if (current < lastScrollY) {
-    if (!scrollUpStart) scrollUpStart = Date.now();
-    // Scroll up rapide depuis en haut de page
-    if (current < 80 && Date.now() - scrollUpStart < 600) showExitIntent();
-  } else {
-    scrollUpStart = null;
-  }
-  lastScrollY = current;
-}, { passive: true });
-// Mobile : timer 15s
-setTimeout(showExitIntent, 15000);
+if (!_suppressMarketing) {
+  // Desktop
+  document.addEventListener('mouseleave', function(e) {
+    if (e.clientY > 0) return;
+    showExitIntent();
+  });
+  // Mobile : scroll up rapide
+  let lastScrollY = window.scrollY;
+  let scrollUpStart = null;
+  window.addEventListener('scroll', function() {
+    const current = window.scrollY;
+    if (current < lastScrollY) {
+      if (!scrollUpStart) scrollUpStart = Date.now();
+      if (current < 80 && Date.now() - scrollUpStart < 600) showExitIntent();
+    } else {
+      scrollUpStart = null;
+    }
+    lastScrollY = current;
+  }, { passive: true });
+  // Mobile : timer 15s
+  setTimeout(showExitIntent, 15000);
+}
 
 function closeExit() {
   document.getElementById('exitOverlay').classList.remove('open');
