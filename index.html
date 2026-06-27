@@ -2305,7 +2305,7 @@
       check(12); y+=3;
       doc.setDrawColor(...BD); doc.line(M,y,W-M,y); y+=5;
       doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-      doc.text('Genere par Ask2Trip - ask2trip.vercel.app - '+new Date().toLocaleDateString('fr-FR'), W/2, y, {align:'center'});
+      doc.text('Genere par Ask2Trip - ask2trip.fr - '+new Date().toLocaleDateString('fr-FR'), W/2, y, {align:'center'});
 
       // Téléchargement
       const filename='itineraire-'+clean(destination).toLowerCase().replace(/[^a-z0-9]/g,'-')+'.pdf';
@@ -2314,22 +2314,39 @@
     };
 
     const runExport = () => {
+      // Normaliser l'accès à jsPDF selon le format de chargement
+      if (!window.jspdf && window.jsPDF) window.jspdf = { jsPDF: window.jsPDF };
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
+        alert('Erreur : jsPDF non disponible. Réessaie.');
+        return;
+      }
       doExport().catch(err=>{
         if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
         alert('Erreur PDF : '+(err.message||err));
       });
     };
 
-    // Charger jsPDF depuis cdnjs (disponible sans restriction)
-    if(!window.jspdf) {
+    // Charger jsPDF (essai cdnjs, fallback unpkg)
+    const loadJsPDF = (src, fallback) => {
       const script=document.createElement('script');
-      script.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.src=src;
       script.onload=runExport;
       script.onerror=()=>{
-        if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
-        alert('Impossible de charger jsPDF. Vérifie ta connexion.');
+        if(fallback){ loadJsPDF(fallback, null); }
+        else {
+          if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
+          alert('Impossible de charger jsPDF. Vérifie ta connexion.');
+        }
       };
       document.head.appendChild(script);
+    };
+
+    if(!window.jspdf && !window.jsPDF) {
+      loadJsPDF(
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+        'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
+      );
     } else { runExport(); }
   }
 
