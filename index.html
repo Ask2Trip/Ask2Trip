@@ -886,13 +886,18 @@
     /* ── HOW IT WORKS ── */
     .how-section{background:#f8fafc;padding:52px 20px 44px;text-align:center;}
     .how-section h2{font-size:22px;font-weight:800;color:#1e293b;margin-bottom:6px;}
-    .how-section .how-sub{font-size:15px;color:#64748b;margin-bottom:36px;}
-    .how-steps{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;max-width:780px;margin:0 auto;}
-    .how-step{flex:1;min-width:200px;max-width:240px;text-align:center;}
-    .how-step .how-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 14px;}
-    .how-step h3{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:6px;}
-    .how-step p{font-size:13px;color:#64748b;line-height:1.5;}
-    .how-arrow{align-self:center;font-size:22px;color:#cbd5e1;flex-shrink:0;}
+    .how-section .how-sub{font-size:15px;color:#64748b;margin-bottom:40px;}
+    .how-steps{display:flex;align-items:flex-start;gap:0;justify-content:center;max-width:860px;margin:0 auto;}
+    .how-step{flex:1;max-width:240px;text-align:center;padding:0 16px;position:relative;}
+    .how-step .how-icon{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px;box-shadow:0 8px 20px rgba(99,102,241,0.25);}
+    .how-step h3{font-size:14px;font-weight:700;color:#1e293b;margin-bottom:8px;}
+    .how-step p{font-size:13px;color:#64748b;line-height:1.6;}
+    .how-arrow{align-self:flex-start;margin-top:22px;font-size:20px;color:#c7d2fe;flex-shrink:0;padding:0 4px;}
+    @media(max-width:600px){
+      .how-steps{flex-direction:column;align-items:center;gap:12px;}
+      .how-arrow{transform:rotate(90deg);margin:0;}
+      .how-step{max-width:300px;width:100%;}
+    }
 
     /* ── TESTIMONIALS ── */
     .testimonials-section{background:white;padding:52px 20px 48px;text-align:center;}
@@ -1111,7 +1116,7 @@
   <div class="testi-grid">
     <div class="testi-card">
       <div class="testi-stars">★★★★★</div>
-      <p class="testi-text">"J'ai généré un itinéraire complet pour Tokyo en 30 secondes. Le niveau de détail est dingue — hôtels, restos, activités, carte. J'aurais mis des heures à faire ça."</p>
+      <p class="testi-text">"Itinéraire Tokyo en 30 secondes, niveau de détail dingue — hôtels, restos, carte. J'aurais mis des heures à faire ça. Les 14,99€ sont rentrés dès le premier vol optimisé."</p>
       <div class="testi-author">
         <div class="testi-avatar">S</div>
         <div><div class="testi-name">Sophie M.</div><div class="testi-trip">📍 Tokyo, 10 jours</div></div>
@@ -1119,7 +1124,7 @@
     </div>
     <div class="testi-card">
       <div class="testi-stars">★★★★★</div>
-      <p class="testi-text">"Partis au Maroc avec l'itinéraire généré. On a tout suivi et c'était parfait. Les adresses restos étaient vraiment bonnes. Franchement bluffant pour un outil gratuit."</p>
+      <p class="testi-text">"On a tout suivi au Maroc et c'était parfait. Restos, riad, trajets — tout était là. L'accès à vie à 14,99€ c'est une blague tellement c'est rentable sur un seul voyage."</p>
       <div class="testi-author">
         <div class="testi-avatar">K</div>
         <div><div class="testi-name">Karim L.</div><div class="testi-trip">📍 Marrakech, 7 jours</div></div>
@@ -1127,7 +1132,7 @@
     </div>
     <div class="testi-card">
       <div class="testi-stars">★★★★★</div>
-      <p class="testi-text">"On était 4 avec des budgets différents, j'ai mis 800€ et l'IA a optimisé chaque poste. On a dépensé exactement ce qu'on avait prévu. Incroyable."</p>
+      <p class="testi-text">"On était 4 avec des budgets différents, l'IA a tout optimisé. On a économisé au moins 300€ vs ce qu'on aurait réservé seuls. Pour 14,99€ d'abonnement à vie, t'es con de ne pas le prendre."</p>
       <div class="testi-author">
         <div class="testi-avatar">L</div>
         <div><div class="testi-name">Léa P.</div><div class="testi-trip">📍 Bali, 14 jours</div></div>
@@ -2908,14 +2913,13 @@ function closeExit() {
   const key = 'a2t_counter';
   let base = parseInt(localStorage.getItem(key) || '0');
   if (!base || base < 2800) { base = 2800 + Math.floor(Math.random() * 200); localStorage.setItem(key, base); }
-  // Incrément aléatoire à chaque visite
-  base += Math.floor(Math.random() * 3);
-  localStorage.setItem(key, base);
+  // Incrément lent : +1 toutes les 2 visites en moyenne
+  if (Math.random() < 0.5) { base += 1; localStorage.setItem(key, base); }
   const el = document.getElementById('heroCount');
   if (!el) return;
-  let start = base - 80;
+  let start = base - 18;
   const step = () => {
-    start += Math.ceil((base - start) / 8);
+    start += Math.ceil((base - start) / 6);
     el.textContent = start.toLocaleString('fr-FR');
     if (start < base) requestAnimationFrame(step);
   };
