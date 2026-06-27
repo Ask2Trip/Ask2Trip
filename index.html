@@ -1819,6 +1819,13 @@
     window._lastTripData = data;
     setTimeout(() => buildBudgetChart(data.budget_estime), 100);
     setTimeout(() => buildMap(data), 150);
+    // Pré-charger jsPDF dès l'affichage des résultats (évite le délai au clic export)
+    if (isPro() && !window.jspdf && !window.jsPDF) {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = () => { if (window.jsPDF && !window.jspdf) window.jspdf = { jsPDF: window.jsPDF }; };
+      document.head.appendChild(s);
+    }
   }
 
   let budgetChartInstance = null;
@@ -2307,9 +2314,18 @@
       doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
       doc.text('Genere par Ask2Trip - ask2trip.fr - '+new Date().toLocaleDateString('fr-FR'), W/2, y, {align:'center'});
 
-      // Téléchargement
+      // Téléchargement — compatible iOS Safari + desktop
       const filename='itineraire-'+clean(destination).toLowerCase().replace(/[^a-z0-9]/g,'-')+'.pdf';
-      doc.save(filename);
+      const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
+      if (isIOS) {
+        // iOS Safari : ouvrir dans un nouvel onglet (pas de téléchargement automatique)
+        const blob = doc.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      } else {
+        doc.save(filename);
+      }
       if(btn){btn.innerHTML='📄 Exporter PDF';btn.disabled=false;}
     };
 
