@@ -2048,46 +2048,57 @@
         const valid=pts.filter(p=>p.lat&&p.lng&&!isNaN(+p.lat)&&!isNaN(+p.lng)&&+p.lat!==0&&+p.lng!==0);
         if(valid.length<2) return null;
 
-        const CW_px=700, CH_px=220;
-        const TILE_SZ=256; // tiles OSM sont toujours 256×256
+        const CW_px=700, CH_px=260;
+        const TILE_SZ=256;
 
-        const lats=valid.map(p=>+p.lat), lngs=valid.map(p=>+p.lng);
-        let minLat=Math.min(...lats), maxLat=Math.max(...lats);
-        let minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
-
-        // Choix du zoom selon l'étendue géographique
-        const latDiff=maxLat-minLat||0.01, lngDiff=maxLng-minLng||0.01;
-        const diff=Math.max(latDiff,lngDiff);
-        const zoom = diff<0.01?15 : diff<0.05?14 : diff<0.2?13 : diff<0.5?12 : diff<2?11 : 10;
-
-        // Padding autour des points
-        const padLat=latDiff*0.4, padLng=lngDiff*0.4;
-        minLat-=padLat; maxLat+=padLat;
-        minLng-=padLng; maxLng+=padLng;
-
-        // Conversion lat/lng -> coordonnées tile flottantes
         const lng2tF=(lng,z)=>(lng+180)/360*Math.pow(2,z);
         const lat2tF=(lat,z)=>{
           const r=lat*Math.PI/180;
           return (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*Math.pow(2,z);
         };
 
-        const txMin=Math.floor(lng2tF(minLng,zoom));
-        const txMax=Math.floor(lng2tF(maxLng,zoom));
-        const tyMin=Math.floor(lat2tF(maxLat,zoom));
-        const tyMax=Math.floor(lat2tF(minLat,zoom));
+        const lats=valid.map(p=>+p.lat), lngs=valid.map(p=>+p.lng);
+        let minLat=Math.min(...lats), maxLat=Math.max(...lats);
+        let minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+
+        // Choisir le zoom optimal pour que TOUS les points tiennent dans 700×260
+        const findZoom = () => {
+          for(let z=15; z>=3; z--) {
+            const pad=0.6; // 60% de padding autour des points
+            const latD=maxLat-minLat||0.005, lngD=maxLng-minLng||0.005;
+            const bMinLat=minLat-latD*pad, bMaxLat=maxLat+latD*pad;
+            const bMinLng=minLng-lngD*pad, bMaxLng=maxLng+lngD*pad;
+            const txMin=Math.floor(lng2tF(bMinLng,z)), txMax=Math.floor(lng2tF(bMaxLng,z));
+            const tyMin=Math.floor(lat2tF(bMaxLat,z)), tyMax=Math.floor(lat2tF(bMinLat,z));
+            const naturalW=(txMax-txMin+1)*TILE_SZ, naturalH=(tyMax-tyMin+1)*TILE_SZ;
+            // Vérifier que le ratio est raisonnable (pas trop de tiles) ET que le scale "contain" donne une bonne résolution
+            const scale=Math.min(CW_px/naturalW, CH_px/naturalH);
+            if(scale<=1.5 && (txMax-txMin+1)*(tyMax-tyMin+1)<=25) return z;
+          }
+          return 8;
+        };
+        const zoom=findZoom();
+
+        // Bounds avec padding généreux (60%)
+        const latD=maxLat-minLat||0.005, lngD=maxLng-minLng||0.005;
+        const pad=0.6;
+        const bMinLat=minLat-latD*pad, bMaxLat=maxLat+latD*pad;
+        const bMinLng=minLng-lngD*pad, bMaxLng=maxLng+lngD*pad;
+
+        const txMin=Math.floor(lng2tF(bMinLng,zoom));
+        const txMax=Math.floor(lng2tF(bMaxLng,zoom));
+        const tyMin=Math.floor(lat2tF(bMaxLat,zoom));
+        const tyMax=Math.floor(lat2tF(bMinLat,zoom));
         const tilesW=txMax-txMin+1, tilesH=tyMax-tyMin+1;
 
-        // Canvas intermédiaire à résolution native (tiles carrées 256×256)
         const naturalW=tilesW*TILE_SZ, naturalH=tilesH*TILE_SZ;
         const big=document.createElement('canvas');
         big.width=naturalW; big.height=naturalH;
         const bctx=big.getContext('2d');
 
-        // Fond de secours
         bctx.fillStyle='#e8edf4'; bctx.fillRect(0,0,naturalW,naturalH);
 
-        // Charger les tuiles OSM en parallèle (carrées, pas étirées)
+        // Charger tiles OSM
         const tileProms=[];
         for(let tx=txMin;tx<=txMax;tx++){
           for(let ty=tyMin;ty<=tyMax;ty++){
@@ -2104,43 +2115,44 @@
         }
         await Promise.all(tileProms);
 
-        // Conversion lat/lng -> pixels sur le grand canvas natif
+        // Conversion lat/lng -> pixels sur le grand canvas
         const lngToX=lng=>(lng2tF(lng,zoom)-txMin)*TILE_SZ;
         const latToY=lat=>(lat2tF(lat,zoom)-tyMin)*TILE_SZ;
 
-        // Légère couche pour faire ressortir les marqueurs
-        bctx.fillStyle='rgba(255,255,255,0.12)'; bctx.fillRect(0,0,naturalW,naturalH);
+        bctx.fillStyle='rgba(255,255,255,0.10)'; bctx.fillRect(0,0,naturalW,naturalH);
 
         // Tracé de la route
         if(valid.length>=2){
-          bctx.strokeStyle=col; bctx.lineWidth=4; bctx.setLineDash([10,6]);
-          bctx.shadowColor='rgba(0,0,0,0.4)'; bctx.shadowBlur=4;
+          bctx.strokeStyle=col; bctx.lineWidth=Math.max(3, TILE_SZ/60); bctx.setLineDash([12,7]);
+          bctx.shadowColor='rgba(0,0,0,0.4)'; bctx.shadowBlur=5;
           bctx.beginPath();
           valid.forEach((p,i)=>{ const x=lngToX(+p.lng),y2=latToY(+p.lat); i===0?bctx.moveTo(x,y2):bctx.lineTo(x,y2); });
           bctx.stroke(); bctx.setLineDash([]); bctx.shadowBlur=0;
         }
 
-        // Marqueurs numérotés
+        // Marqueurs numérotés — taille adaptée au zoom
+        const R=Math.max(12, Math.min(20, TILE_SZ/14));
         valid.forEach((p,i)=>{
           const x=lngToX(+p.lng), y2=latToY(+p.lat);
-          bctx.beginPath(); bctx.arc(x+1.5,y2+1.5,14,0,Math.PI*2);
-          bctx.fillStyle='rgba(0,0,0,0.25)'; bctx.fill();
-          bctx.beginPath(); bctx.arc(x,y2,14,0,Math.PI*2);
+          bctx.beginPath(); bctx.arc(x+2,y2+2,R,0,Math.PI*2);
+          bctx.fillStyle='rgba(0,0,0,0.22)'; bctx.fill();
+          bctx.beginPath(); bctx.arc(x,y2,R,0,Math.PI*2);
           bctx.fillStyle='white'; bctx.fill();
-          bctx.beginPath(); bctx.arc(x,y2,11,0,Math.PI*2);
+          bctx.beginPath(); bctx.arc(x,y2,R-3,0,Math.PI*2);
           bctx.fillStyle=col; bctx.fill();
-          bctx.fillStyle='white'; bctx.font='bold 13px Arial';
+          bctx.fillStyle='white'; bctx.font=`bold ${R+1}px Arial`;
           bctx.textAlign='center'; bctx.textBaseline='middle';
           bctx.fillText(String(i+1),x,y2);
           bctx.textAlign='left'; bctx.textBaseline='alphabetic';
         });
 
-        // Canvas final 700×220 — scale "cover" (remplir sans étirer)
+        // Canvas final — scale "contain" pour voir TOUS les points, fond gris clair
         const mc=document.createElement('canvas');
         mc.width=CW_px; mc.height=CH_px;
         const ctx=mc.getContext('2d');
+        ctx.fillStyle='#e8edf4'; ctx.fillRect(0,0,CW_px,CH_px);
 
-        const scale=Math.max(CW_px/naturalW, CH_px/naturalH);
+        const scale=Math.min(CW_px/naturalW, CH_px/naturalH);
         const sw=naturalW*scale, sh=naturalH*scale;
         const ox=(CW_px-sw)/2, oy=(CH_px-sh)/2;
         ctx.drawImage(big,ox,oy,sw,sh);
@@ -2183,7 +2195,7 @@
 
         // Mini-carte du jour (pré-chargée avec tuiles OSM)
         if(dayMaps[day.jour]){
-          const mapH=CW*220/700;
+          const mapH=CW*260/700;
           check(mapH+4);
           doc.addImage(dayMaps[day.jour],'JPEG',M,y,CW,mapH);
           y+=mapH+4;
