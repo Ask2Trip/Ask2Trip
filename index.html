@@ -2203,7 +2203,6 @@
 
         if(tModes.length) {
           const mW = (CW - (tModes.length-1)*4) / tModes.length;
-          // Calcul des hauteurs en premier passage
           const getInfo = m => {
             const inf=[];
             if(m.key==='avion'   && m.d.flight_duration)            inf.push(clean(m.d.flight_duration));
@@ -2214,7 +2213,12 @@
             if(!m.d.pertinent    && m.d.raison_si_non_pertinent)    inf.push(clean(m.d.raison_si_non_pertinent));
             return inf;
           };
-          const maxCardH = Math.max(...tModes.map(m => 8+5.5+getInfo(m).length*5+6));
+          // Compter les vraies lignes wrappées pour chaque carte
+          const countLines = m => {
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+            return getInfo(m).reduce((s,l)=>s+doc.splitTextToSize(l, mW-8).length, 0);
+          };
+          const maxCardH = Math.max(30, ...tModes.map(m => 10+6+countLines(m)*4.5+6));
           check(maxCardH+6);
 
           tModes.forEach((m, mi) => {
@@ -2231,9 +2235,10 @@
             doc.setTextColor(...(isRec?P:SL)); doc.text(m.label.toUpperCase(), mx+4, y+7.5);
             let iy=y+13;
             getInfo(m).forEach(l=>{
+              doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
               const ls=doc.splitTextToSize(l, mW-8);
-              doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-              doc.text(ls, mx+4, iy); iy+=ls.length*4+1;
+              doc.setTextColor(...GR);
+              doc.text(ls, mx+4, iy); iy+=ls.length*4.5+1.5;
             });
           });
           y += maxCardH+6;
@@ -2272,9 +2277,13 @@
 
         // Activités — cards avec dot de timeline
         (day.activites||[]).forEach(a => {
+          // Définir la font AVANT splitTextToSize pour un wrapping exact
+          doc.setFont('helvetica','bold'); doc.setFontSize(10);
           const nameL=doc.splitTextToSize(clean(a.activite||''), CW-26);
+          doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
           const descL=a.description ? doc.splitTextToSize(clean(a.description), CW-26) : [];
-          const cH=5+5.5+nameL.length*4.5+(descL.length?descL.length*3.5+2:0)+(a.prix_estime?4.5:0)+5;
+          // Hauteurs généreuses : name=5mm/ligne, desc=4.2mm/ligne
+          const cH=7+6+nameL.length*5+(descL.length?descL.length*4.2+3:0)+(a.prix_estime?5:0)+5;
           check(cH+3);
 
           // Dot de timeline
@@ -2286,7 +2295,7 @@
           // Badge heure
           let bx=M+13;
           if(a.heure) {
-            doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+            doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
             const htw=doc.getTextWidth(a.heure);
             doc.setFillColor(...col); doc.roundedRect(bx, y+2.5, htw+5, 5, 1.5, 1.5, 'F');
             doc.setTextColor(...WH); doc.text(a.heure, bx+2.5, y+6.3);
@@ -2297,16 +2306,16 @@
             doc.text(clean(a.duree), bx, y+6.3);
           }
 
-          let ay=y+10;
+          let ay=y+11;
           doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...SL);
-          doc.text(nameL, M+13, ay); ay+=nameL.length*4.5+1;
+          doc.text(nameL, M+13, ay); ay+=nameL.length*5+1;
 
           if(descL.length) {
             doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-            doc.text(descL, M+13, ay); ay+=descL.length*3.5+2;
+            doc.text(descL, M+13, ay); ay+=descL.length*4.2+3;
           }
           if(a.prix_estime) {
-            doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...GN);
+            doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...GN);
             doc.text(clean(a.prix_estime), M+13, ay);
           }
           y+=cH+4;
@@ -2324,9 +2333,11 @@
           const aC = isCdC ? P : (isRap ? GN : AM);
           const aLt = isCdC ? PLT : (isRap ? GNLT : AMLT);
           const bLabel = isCdC ? 'Coup de coeur' : (isRap ? 'Meilleur rapport' : 'Budget');
+          // Font avant splitTextToSize pour calcul exact
+          doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
           const descL=h.description ? doc.splitTextToSize(clean(h.description), CW-12) : [];
           const pts=(h.points_forts||[]).slice(0,3);
-          const cH=8+5.5+(descL.length?descL.length*3.5+4:0)+pts.length*4.5+7;
+          const cH=10+6+(descL.length?descL.length*4.2+4:0)+pts.length*5+7;
           check(cH+4);
 
           card(M, y, CW, cH, WH, BD);
@@ -2338,33 +2349,33 @@
           doc.setFillColor(...aLt); doc.roundedRect(W-M-bww-2, y+3, bww, 5.5, 1.5, 1.5, 'F');
           doc.setTextColor(...aC); doc.text(bLabel, W-M-bww+2, y+7.2);
 
-          let hy=y+7;
+          let hy=y+8;
           doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...SL);
-          doc.text(clean(h.nom), M+7, hy); hy+=6;
+          doc.text(clean(h.nom), M+7, hy); hy+=7;
 
-          // Étoiles + quartier + prix/nuit
+          // Étoiles (ASCII — ★/☆ non supportés par jsPDF Helvetica) + quartier + prix/nuit
           const etoiles=Math.min(h.etoiles||3,5);
-          const stars='★'.repeat(etoiles)+'☆'.repeat(5-etoiles);
-          doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...AM);
-          doc.text(stars, M+7, hy);
+          const starsText='*'.repeat(etoiles)+(etoiles<5?'-'.repeat(5-etoiles):'')+' '+etoiles+'/5';
+          doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...AM);
+          doc.text(starsText, M+7, hy);
           if(h.quartier) {
-            doc.setTextColor(...MU); doc.setFontSize(8.5);
-            doc.text(' · '+clean(h.quartier), M+7+doc.getTextWidth(stars)+1, hy);
+            doc.setFont('helvetica','normal'); doc.setTextColor(...MU);
+            doc.text(' · '+clean(h.quartier), M+7+doc.getTextWidth(starsText)+1, hy);
           }
           if(h.prix_nuit) {
             doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...GN);
             doc.text(clean(h.prix_nuit)+'/nuit', W-M-4, hy, {align:'right'});
           }
-          hy+=5;
+          hy+=5.5;
 
           if(descL.length) {
             doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-            doc.text(descL, M+7, hy); hy+=descL.length*3.5+4;
+            doc.text(descL, M+7, hy); hy+=descL.length*4.2+4;
           }
           pts.forEach(pt => {
             doc.setFillColor(...aC); doc.circle(M+9, hy-1.5, 1.3, 'F');
             doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...SL);
-            doc.text(clean(pt), M+13, hy); hy+=4.5;
+            doc.text(clean(pt), M+13, hy); hy+=5;
           });
           y+=cH+5;
         });
@@ -2379,9 +2390,12 @@
           const row=data.restaurants.slice(ri, ri+2);
           let maxRH=0;
           row.forEach(r => {
+            // Font avant splitTextToSize pour calcul de wrapping correct
+            doc.setFont('helvetica','bold'); doc.setFontSize(10);
             const nl=doc.splitTextToSize(clean(r.nom||''), rW-10);
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
             const dl=r.description ? doc.splitTextToSize(clean(r.description), rW-10) : [];
-            maxRH=Math.max(maxRH, 7+nl.length*4.5+5+(dl.length?dl.length*3.5+3:0)+(r.specialite?5:0)+5);
+            maxRH=Math.max(maxRH, 7+nl.length*5+5+(dl.length?dl.length*4.2+3:0)+(r.specialite?5:0)+5);
           });
           check(maxRH+5);
 
@@ -2401,18 +2415,20 @@
             }
 
             let ry2=y+7;
+            doc.setFont('helvetica','bold'); doc.setFontSize(10);
             const nl2=doc.splitTextToSize(clean(r.nom||''), rW-10);
-            doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...SL);
-            doc.text(nl2, rx2+4, ry2); ry2+=nl2.length*4.5+1;
+            doc.setTextColor(...SL);
+            doc.text(nl2, rx2+4, ry2); ry2+=nl2.length*5+1;
 
             const meta=[clean(r.type||''),r.prix||'',clean(r.quartier||'')].filter(Boolean).join(' · ');
             doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...MU);
             doc.text(meta, rx2+4, ry2); ry2+=5;
 
             if(r.description) {
+              doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
               const dl2=doc.splitTextToSize(clean(r.description), rW-10);
-              doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-              doc.text(dl2, rx2+4, ry2); ry2+=dl2.length*3.5+3;
+              doc.setTextColor(...GR);
+              doc.text(dl2, rx2+4, ry2); ry2+=dl2.length*4.2+3;
             }
             if(r.specialite) {
               doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(...AM);
@@ -2435,33 +2451,41 @@
       if(beRows.length||be.total_par_personne) {
         secHead('Budget estime');
         const parseAmt=v=>parseInt((v||'').replace(/[^0-9]/g,''))||0;
+        // Extrait juste le montant numérique pour l'affichage court
+        const shortAmt=v=>{ const n=parseAmt(v); return n ? n+' EUR' : clean(v).slice(0,12); };
         const amounts=beRows.map(r=>parseAmt(r.v));
         const maxAmt=Math.max(...amounts,1);
-        const barMaxW=CW-62;
+        // Layout : label (30mm) | barre (variable) | montant (22mm)
+        const labelW=30, amtW=24, barMaxW=CW-labelW-amtW-6;
 
         beRows.forEach((r,ri2) => {
-          check(9);
+          check(12);
+          // Fond alterné
           doc.setFillColor(ri2%2===0?248:252, ri2%2===0?250:253, ri2%2===0?252:254);
-          doc.rect(M, y, CW, 8, 'F');
-          doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...SL);
-          doc.text(r.l, M+3, y+5.5);
+          doc.rect(M, y, CW, 11, 'F');
+          // Label
+          doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...GR);
+          doc.text(r.l, M+3, y+7);
           // Barre fond gris
-          doc.setFillColor(...BD); doc.roundedRect(M+50, y+2, barMaxW, 4, 1, 1, 'F');
+          const barX=M+labelW+2;
+          doc.setFillColor(...BD); doc.roundedRect(barX, y+3.5, barMaxW, 4, 1.5, 1.5, 'F');
           // Barre colorée proportionnelle
-          const bw2=(amounts[ri2]/maxAmt)*barMaxW;
-          if(bw2>0) { doc.setFillColor(...r.col); doc.roundedRect(M+50, y+2, bw2, 4, 1, 1, 'F'); }
+          const bw2=Math.max((amounts[ri2]/maxAmt)*barMaxW, 2);
+          doc.setFillColor(...r.col); doc.roundedRect(barX, y+3.5, bw2, 4, 1.5, 1.5, 'F');
+          // Montant (court, juste le nombre)
           doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...SL);
-          doc.text(clean(r.v), W-M-2, y+5.5, {align:'right'});
-          y+=8;
+          doc.text(shortAmt(r.v), W-M-2, y+7, {align:'right'});
+          y+=11;
         });
 
         if(be.total_par_personne) {
-          check(12);
-          doc.setFillColor(...P); doc.roundedRect(M, y, CW, 10, 2, 2, 'F');
+          check(13);
+          y+=2;
+          doc.setFillColor(...P); doc.roundedRect(M, y, CW, 11, 2, 2, 'F');
           doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...WH);
-          doc.text('TOTAL PAR PERSONNE', M+4, y+7);
-          doc.text(clean(be.total_par_personne), W-M-4, y+7, {align:'right'});
-          y+=14;
+          doc.text('TOTAL PAR PERSONNE', M+4, y+7.5);
+          doc.text(shortAmt(be.total_par_personne), W-M-4, y+7.5, {align:'right'});
+          y+=15;
         }
       }
 
