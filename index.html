@@ -847,6 +847,42 @@
       .activity-details { margin-top:8px; }
       .activity-details [data-gyg-widget] { transform-origin:top left; font-size:13px; }
     }
+    /* ── STICKY BANNER ── */
+    .sticky-banner{position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:white;text-align:center;padding:9px 44px 9px 16px;font-size:13px;font-weight:600;line-height:1.4;}
+    .sticky-banner span{opacity:.85;font-weight:400;}
+    .sticky-banner .sb-close{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:white;cursor:pointer;font-size:18px;opacity:.7;padding:0;}
+    .sticky-banner .sb-close:hover{opacity:1;}
+    .sticky-banner .sb-cta{color:white;text-decoration:underline;cursor:pointer;font-weight:700;}
+    body.has-banner .hero,.body.has-banner .form-section{margin-top:40px;}
+
+    /* ── FOMO TOAST ── */
+    .fomo-toast{position:fixed;bottom:24px;left:20px;z-index:9990;background:white;border-radius:14px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,0.18);display:flex;align-items:center;gap:10px;max-width:290px;transform:translateX(-120%);transition:transform 0.45s cubic-bezier(0.34,1.56,0.64,1);border-left:4px solid #6366f1;}
+    .fomo-toast.show{transform:translateX(0);}
+    .fomo-toast .ft-flag{font-size:22px;flex-shrink:0;}
+    .fomo-toast .ft-body{font-size:12px;color:#334155;line-height:1.4;}
+    .fomo-toast .ft-body strong{color:#1e293b;display:block;}
+    .fomo-toast .ft-time{font-size:10px;color:#94a3b8;margin-top:2px;}
+
+    /* ── EXIT INTENT ── */
+    .exit-overlay{display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,0.75);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;}
+    .exit-overlay.open{display:flex;}
+    .exit-box{background:white;border-radius:20px;padding:32px 24px 28px;max-width:400px;width:100%;text-align:center;position:relative;}
+    .exit-box .ex-emoji{font-size:44px;margin-bottom:10px;}
+    .exit-box h3{font-size:21px;font-weight:800;color:#1e293b;margin-bottom:8px;}
+    .exit-box p{font-size:14px;color:#64748b;line-height:1.6;margin-bottom:20px;}
+    .exit-box .ex-price{font-size:32px;font-weight:900;color:#6366f1;margin-bottom:4px;}
+    .exit-box .ex-sub{font-size:13px;color:#94a3b8;margin-bottom:22px;}
+    .exit-box .ex-btn{display:block;width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;text-decoration:none;margin-bottom:10px;}
+    .exit-box .ex-skip{font-size:12px;color:#94a3b8;cursor:pointer;text-decoration:underline;background:none;border:none;font-family:Inter,sans-serif;}
+    .exit-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;}
+
+    /* ── POST-GEN UPSELL ── */
+    .postgensell{background:linear-gradient(135deg,#fdf4ff,#ede9fe);border:2px solid #a78bfa;border-radius:16px;padding:18px 20px;margin:0 0 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+    .postgensell .pgs-text{flex:1;min-width:200px;}
+    .postgensell .pgs-text strong{display:block;font-size:15px;font-weight:700;color:#4c1d95;margin-bottom:4px;}
+    .postgensell .pgs-text span{font-size:13px;color:#6d28d9;}
+    .postgensell .pgs-btn{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap;box-shadow:0 4px 14px rgba(99,102,241,0.35);}
+
     @media (max-width:480px) {
       .resto-grid { grid-template-columns:1fr; }
       .budget-grid { grid-template-columns:repeat(2,1fr); }
@@ -859,6 +895,36 @@
   </style>
 </head>
 <body>
+
+<!-- STICKY BANNER -->
+<div class="sticky-banner" id="stickyBanner">
+  🔥 Offre Fondateur · <strong>14,99€ accès à vie</strong> <span>— il ne reste que <strong id="spotsLeft">7</strong> places ·</span> <span class="sb-cta" onclick="showPaywall('offre-fondateur')">En profiter →</span>
+  <button class="sb-close" onclick="document.getElementById('stickyBanner').style.display='none';document.body.classList.remove('has-banner')">✕</button>
+</div>
+
+<!-- FOMO TOAST -->
+<div class="fomo-toast" id="fomoToast">
+  <div class="ft-flag" id="fomoFlag">🇯🇵</div>
+  <div class="ft-body">
+    <strong id="fomoName">Sophie de Lyon</strong>
+    <span id="fomoText">vient de générer un itinéraire pour Tokyo</span>
+    <div class="ft-time">à l'instant</div>
+  </div>
+</div>
+
+<!-- EXIT INTENT -->
+<div class="exit-overlay" id="exitOverlay">
+  <div class="exit-box">
+    <button class="exit-close" onclick="closeExit()">✕</button>
+    <div class="ex-emoji">✈️</div>
+    <h3>Attends ! Avant de partir…</h3>
+    <p>Tu peux accéder à des itinéraires illimités, jusqu'à 21 jours, avec carte interactive et export PDF.</p>
+    <div class="ex-price">14,99€</div>
+    <div class="ex-sub">une seule fois · accès à vie · <strong id="exitSpots">7</strong> places restantes</div>
+    <a href="https://buy.stripe.com/28EbJ1ebTgeWd1q0vT6Na03" target="_blank" class="ex-btn" onclick="closeExit()">🏆 Obtenir l'accès fondateur →</a>
+    <button class="ex-skip" onclick="closeExit()">Non merci, je préfère les itinéraires limités</button>
+  </div>
+</div>
 
 <!-- HERO -->
 <section class="hero">
@@ -1031,7 +1097,7 @@
 
       <!-- Plan Fondateur -->
       <div class="plan-card plan-founder">
-        <div class="plan-badge plan-badge-amber">🏆 10 places</div>
+        <div class="plan-badge plan-badge-amber">🏆 Il reste <span id="founderSpots">7</span> places · <span id="founderTimer">--:--</span></div>
         <div class="plan-title">Fondateur</div>
         <div class="plan-price">14,99€</div>
         <div class="plan-period">une seule fois<br>accès à vie</div>
@@ -2233,11 +2299,25 @@
       el.innerHTML = `<div class="gen-banner last">
         <span>⚠️ C'était ta <strong>dernière génération gratuite</strong> ce mois-ci.</span>
         <button class="btn-upgrade-small" onclick="showPaywall('Tu as utilisé ta génération gratuite ce mois-ci.')">Passer à Pro →</button>
+      </div>
+      <div class="postgensell">
+        <div class="pgs-text">
+          <strong>🏆 Offre Fondateur — 14,99€ accès à vie</strong>
+          <span>Tu as adoré ton itinéraire ? Génère-en autant que tu veux, sans limite, pour toujours.</span>
+        </div>
+        <button class="pgs-btn" onclick="showPaywall('fondateur')">En profiter →</button>
       </div>`;
     } else if (r === 1) {
       el.innerHTML = `<div class="gen-banner warning">
         <span>⏳ C'est ta dernière génération gratuite ce mois-ci.</span>
         <button class="btn-upgrade-small" onclick="showPaywall()">Passer à Pro →</button>
+      </div>
+      <div class="postgensell">
+        <div class="pgs-text">
+          <strong>🏆 Offre Fondateur — 14,99€ accès à vie</strong>
+          <span>Il ne te reste qu'une génération gratuite. Passe Pro maintenant et ne sois plus jamais bloqué.</span>
+        </div>
+        <button class="pgs-btn" onclick="showPaywall('fondateur')">En profiter →</button>
       </div>`;
     } else {
       el.innerHTML = `<div class="gen-banner free">
@@ -2647,6 +2727,69 @@
         </div>`;
     }
   }
+</script>
+
+<script>
+// ── STICKY BANNER ──
+document.body.classList.add('has-banner');
+
+// ── COUNTDOWN FONDATEUR (24h rolling) ──
+function startFounderCountdown() {
+  const key = 'a2t_founder_deadline';
+  let deadline = parseInt(localStorage.getItem(key) || '0');
+  if (!deadline || deadline < Date.now()) {
+    deadline = Date.now() + 23 * 3600000 + Math.floor(Math.random() * 3600000);
+    localStorage.setItem(key, deadline);
+  }
+  function tick() {
+    const diff = deadline - Date.now();
+    if (diff <= 0) { localStorage.removeItem(key); startFounderCountdown(); return; }
+    const h = String(Math.floor(diff / 3600000)).padStart(2,'0');
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
+    const txt = h + ':' + m + ':' + s;
+    ['founderTimer'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = txt; });
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+startFounderCountdown();
+
+// ── FOMO TOASTS ──
+const fomoData = [
+  {flag:'🇯🇵', name:'Sophie de Lyon', text:'vient de générer un itinéraire pour Tokyo'},
+  {flag:'🇲🇦', name:'Karim de Paris', text:'prépare 10 jours au Maroc pour 600€'},
+  {flag:'🇹🇭', name:'Léa de Bordeaux', text:'vient de générer un itinéraire pour Bali'},
+  {flag:'🇵🇹', name:'Antoine de Nantes', text:'prépare un séjour à Lisbonne'},
+  {flag:'🇬🇷', name:'Camille de Marseille', text:'vient de générer un itinéraire pour Athènes'},
+  {flag:'🇭🇷', name:'Hugo de Toulouse', text:'prépare 7 jours en Croatie'},
+  {flag:'🇲🇽', name:'Emma de Lille', text:'vient de générer un itinéraire pour le Mexique'},
+  {flag:'🇮🇸', name:'Tom de Strasbourg', text:'prépare un road trip en Islande'},
+];
+let fomoIdx = 0;
+function showFomoToast() {
+  const toast = document.getElementById('fomoToast');
+  if (!toast) return;
+  const d = fomoData[fomoIdx % fomoData.length];
+  fomoIdx++;
+  document.getElementById('fomoFlag').textContent = d.flag;
+  document.getElementById('fomoName').textContent = d.name;
+  document.getElementById('fomoText').textContent = d.text;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+setTimeout(() => { showFomoToast(); setInterval(showFomoToast, 35000); }, 8000);
+
+// ── EXIT INTENT ──
+let exitShown = false;
+document.addEventListener('mouseleave', function(e) {
+  if (e.clientY > 0 || exitShown || isPro()) return;
+  exitShown = true;
+  document.getElementById('exitOverlay').classList.add('open');
+});
+function closeExit() {
+  document.getElementById('exitOverlay').classList.remove('open');
+}
 </script>
 </body>
 </html>
