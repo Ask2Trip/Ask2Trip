@@ -1497,7 +1497,7 @@
             <h2>🌍 Votre voyage à ${destination}</h2>
             <p>${data.resume || ''}</p>
           </div>
-          <button onclick="exportPDF()" style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 18px;background:${isPro() ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#94a3b8'};color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;font-family:Inter,sans-serif;white-space:nowrap;" title="${isPro() ? 'Exporter en PDF' : 'Fonctionnalité Pro'}">
+          <button onclick="exportPDF()" style="flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 18px;background:${isPro() ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#94a3b8'};color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;font-family:Inter,sans-serif;white-space:nowrap;position:relative;z-index:2;" title="${isPro() ? 'Exporter en PDF' : 'Fonctionnalité Pro'}">
             📄 ${isPro() ? 'Exporter PDF' : '🔒 PDF Pro'}
           </button>
         </div>
@@ -2824,7 +2824,7 @@
             <div style="font-size:13px;opacity:0.75;margin-bottom:14px;">La carte complète est réservée aux membres Pro</div>
             <button onclick="showPaywall('Débloquez la carte complète et toutes les fonctionnalités Pro.')"
               style="padding:10px 20px;background:#6366f1;color:white;border:none;border-radius:100px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
-              ✨ Débloquer Pro — 9,99€
+              ✨ Débloquer Pro — 14,99€
             </button>
           </div>`;
         mapEl.style.position = 'relative';
