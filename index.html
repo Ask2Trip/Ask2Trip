@@ -1962,7 +1962,8 @@
       const { jsPDF } = window.jspdf;
       const { destination, dateDebut, dateFin, voyageurs, budget } = params;
       const nbJours = Math.round((new Date(dateFin) - new Date(dateDebut)) / 86400000);
-      const dateStr = new Date(dateDebut).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}) + ' - ' + new Date(dateFin).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+      const dateDebutFmt = new Date(dateDebut).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+      const dateFinFmt   = new Date(dateFin).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
       const cp = data.conseils_pratiques || {};
       const be = data.budget_estime || {};
 
@@ -1970,78 +1971,86 @@
       const clean = (s) => (s||'').replace(/[\u{1F300}-\u{1FFFF}]/gu,'').replace(/[^\x00-\xFF]/g,'').trim();
 
       const doc = new jsPDF('p','mm','a4');
-      const W=210, M=14, CW=W-2*M;
+      const W=210, H=297, M=14, CW=W-2*M;
       let y=0;
 
-      // Couleurs
-      const P=[99,102,241], PL=[237,233,254], WH=[255,255,255];
-      const DK=[30,41,59], GR=[100,116,139], GN=[5,150,105], BD=[226,232,240];
-
-      const newPage = () => { doc.addPage(); y=M; };
-      const check = (h=10) => { if(y+h>282) newPage(); };
-
-      const txt = (s,x,sz,col,maxW,bold,italic) => {
-        if(!s) return 0;
-        doc.setFontSize(sz);
-        doc.setTextColor(...col);
-        doc.setFont('helvetica', bold?'bold':italic?'italic':'normal');
-        const lines = doc.splitTextToSize(clean(s), maxW||CW);
-        doc.text(lines, x, y);
-        const h = lines.length*(sz*0.352)+1;
-        y+=h; return h;
-      };
-
-      const hline = (col=BD) => { doc.setDrawColor(...col); doc.line(M,y,W-M,y); y+=1; };
-
-      const sectionTitle = (label) => {
-        check(14);
-        y+=4;
-        doc.setFillColor(...PL);
-        doc.rect(M,y-4,CW,10,'F');
-        doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...P);
-        doc.text(label, M+3, y+2);
-        y+=9; hline(PL);
-      };
-
-      // ── COVER ──────────────────────────────────────────────
-      doc.setFillColor(...P);
-      doc.rect(0,0,W,70,'F');
-      y=18;
-      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...WH);
-      doc.text('ITINERAIRE PERSONNALISE - ASK2TRIP', M, y); y+=9;
-
-      doc.setFont('helvetica','bold'); doc.setFontSize(24); doc.setTextColor(...WH);
-      doc.text('Voyage a '+clean(destination), M, y); y+=10;
-
-      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(220,220,255);
-      doc.text(dateStr+' | '+nbJours+' jours | '+voyageurs+' voyageur(s) | Budget: '+budget+'EUR', M, y, {maxWidth:CW}); y+=10;
-
-      // Tags sur fond violet clair
-      const tags = [nbJours+' jours', voyageurs+' voyageur(s)', budget+'EUR de budget'];
-      let tx=M; y+=4;
-      tags.forEach(tag => {
-        doc.setFillColor(120,124,255);
-        doc.roundedRect(tx, y-3, doc.getTextWidth(tag)+8, 6, 2, 2, 'F');
-        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...WH);
-        doc.text(tag, tx+4, y+0.5);
-        tx += doc.getTextWidth(tag)+14;
-      });
-      y=80;
-
-      // ── RESUME ─────────────────────────────────────────────
-      if(data.resume) {
-        doc.setFillColor(...PL);
-        const rLines = doc.splitTextToSize(clean(data.resume), CW-8);
-        const rH = rLines.length*4.5+6;
-        doc.rect(M,y,CW,rH,'F');
-        doc.setFillColor(...P); doc.rect(M,y,3,rH,'F');
-        doc.setFont('helvetica','italic'); doc.setFontSize(10); doc.setTextColor(76,29,149);
-        doc.text(rLines, M+6, y+5);
-        y+=rH+6;
-      }
-
-      // ── HELPER : mini-carte avec tuiles OSM ─────────────────
+      // ── PALETTE ──────────────────────────────────────────────
+      const P=[99,102,241], PDK=[67,56,202], PMD=[129,140,248], PLT=[237,233,254], PXLT=[245,243,255];
+      const WH=[255,255,255], SL=[30,41,59], GR=[71,85,105], MU=[148,163,184], BD=[226,232,240], BG=[248,250,252];
+      const GN=[5,150,105], GNLT=[240,253,244], AM=[217,119,6], AMLT=[255,251,235];
       const dayColors=['#6366f1','#ef4444','#10b981','#f59e0b','#8b5cf6','#0ea5e9','#f97316','#ec4899'];
+      const dayRGB=[[99,102,241],[239,68,68],[16,185,129],[245,158,11],[139,92,246],[14,165,233],[249,115,22],[236,72,153]];
+
+      // ── HELPERS ───────────────────────────────────────────────
+      const pageHeader = () => {
+        doc.setFillColor(...P); doc.rect(0,0,W,4,'F');
+        doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...MU);
+        doc.text('ASK2TRIP', M, 9.5);
+        doc.text(clean(destination).toUpperCase(), W/2, 9.5, {align:'center'});
+        doc.text('ask2trip.fr', W-M, 9.5, {align:'right'});
+      };
+      const addPage = () => { doc.addPage(); y=16; pageHeader(); };
+      const check = (h=10) => { if(y+h>279) addPage(); };
+      const secHead = (label, col=P) => {
+        check(16); y+=3;
+        doc.setFillColor(...col);
+        doc.roundedRect(M,y,CW,8.5,2,2,'F');
+        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...WH);
+        doc.text(label.toUpperCase(), M+5, y+6);
+        y+=12;
+      };
+      const card = (x2,y2,w,h2,fill=BG,stroke=BD) => {
+        doc.setFillColor(...fill); doc.setDrawColor(...stroke);
+        doc.roundedRect(x2,y2,w,h2,2,2,'FD');
+      };
+
+      // ── PAGE DE COUVERTURE ────────────────────────────────────
+      doc.setFillColor(...PDK); doc.rect(0,0,W,H,'F');
+      // Cercles décoratifs
+      doc.setFillColor(79,70,229);  doc.circle(W-15,35,55,'F');
+      doc.setFillColor(55,48,163);  doc.circle(20,H-30,70,'F');
+      doc.setFillColor(67,56,202);  doc.circle(W*0.6,H*0.55,38,'F');
+      // Label catégorie
+      y=42;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(165,180,252);
+      doc.text('ITINERAIRE PERSONNALISE · ASK2TRIP', M+2, y); y+=5;
+      // Ligne décorative
+      doc.setDrawColor(...PMD); doc.setLineWidth(0.4); doc.line(M,y,M+50,y); doc.setLineWidth(0.2); y+=10;
+      // Grand titre destination
+      doc.setFont('helvetica','bold'); doc.setFontSize(36); doc.setTextColor(...WH);
+      const destL=doc.splitTextToSize('Voyage a '+clean(destination), CW);
+      doc.text(destL,M,y); y+=destL.length*13+4;
+      // Dates
+      doc.setFont('helvetica','normal'); doc.setFontSize(12); doc.setTextColor(165,180,252);
+      doc.text(dateDebutFmt+' → '+dateFinFmt, M, y); y+=10;
+      // Chips (jours / voyageurs / budget)
+      const chips=[nbJours+' jours', voyageurs+' voyageur'+(voyageurs>1?'s':''), 'Budget : '+budget+'€'];
+      let chipX=M; doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+      chips.forEach(ch=>{
+        const tw=doc.getTextWidth(ch);
+        doc.setFillColor(79,70,229); doc.setDrawColor(...PMD);
+        doc.roundedRect(chipX,y-4,tw+10,7.5,2,2,'FD');
+        doc.setTextColor(...WH); doc.text(ch,chipX+5,y+1.5);
+        chipX+=tw+16;
+      }); y+=14;
+      // Bloc résumé
+      if(data.resume){
+        const rl=doc.splitTextToSize(clean(data.resume),CW-10);
+        const rH=rl.length*5+10;
+        doc.setFillColor(55,48,163); doc.setDrawColor(...P);
+        doc.roundedRect(M,y,CW,rH,3,3,'FD');
+        doc.setFillColor(...PMD); doc.roundedRect(M,y,3.5,rH,1.5,1.5,'F');
+        doc.setFont('helvetica','italic'); doc.setFontSize(10); doc.setTextColor(199,210,254);
+        doc.text(rl,M+7,y+7); y+=rH+8;
+      }
+      // Bandeau bas de couverture
+      doc.setFillColor(55,48,163); doc.rect(0,H-18,W,18,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...WH);
+      doc.text('ask2trip.fr', M, H-8);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...PMD);
+      doc.text('Votre copilote voyage IA · Genéré le '+new Date().toLocaleDateString('fr-FR'), M, H-3.5);
+
+      // ── HELPER : mini-carte avec tuiles OSM ──────────────────
 
       const drawDayMapAsync = async (pts, col) => {
         if(!pts||pts.length<2) return null;
@@ -2178,163 +2187,357 @@
         }
       }));
 
-      // ── ITINÉRAIRE ─────────────────────────────────────────
-      sectionTitle('Itineraire jour par jour');
+      // ── DÉBUT DES PAGES CONTENU ──────────────────────────────
+      addPage();
+
+      // ── TRANSPORT ────────────────────────────────────────────
+      const tr = data.transport || {};
+      if(tr.mode_recommande) {
+        secHead('Transport');
+        const mRec = clean(tr.mode_recommande).toLowerCase();
+        const tModes = [
+          { key:'avion',   label:'Avion',   d: tr.avion   },
+          { key:'train',   label:'Train',   d: tr.train   },
+          { key:'voiture', label:'Voiture', d: tr.voiture },
+        ].filter(m => m.d);
+
+        if(tModes.length) {
+          const mW = (CW - (tModes.length-1)*4) / tModes.length;
+          // Calcul des hauteurs en premier passage
+          const getInfo = m => {
+            const inf=[];
+            if(m.key==='avion'   && m.d.flight_duration)            inf.push(clean(m.d.flight_duration));
+            if(m.key==='avion'   && m.d.prix_estime)                inf.push(clean(m.d.prix_estime));
+            if(m.key==='train'   && m.d.duree_estimee)              inf.push(clean(m.d.duree_estimee));
+            if(m.key==='train'   && m.d.prix_estime)                inf.push(clean(m.d.prix_estime));
+            if(m.key==='voiture' && m.d.distance_km)                inf.push(String(m.d.distance_km)+' km');
+            if(!m.d.pertinent    && m.d.raison_si_non_pertinent)    inf.push(clean(m.d.raison_si_non_pertinent));
+            return inf;
+          };
+          const maxCardH = Math.max(...tModes.map(m => 8+5.5+getInfo(m).length*5+6));
+          check(maxCardH+6);
+
+          tModes.forEach((m, mi) => {
+            const isRec = mRec.includes(m.key);
+            const mx = M + mi*(mW+4);
+            card(mx, y, mW, maxCardH, isRec?PXLT:BG, isRec?P:BD);
+            if(isRec) {
+              doc.setFillColor(...P); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+              const bw=doc.getTextWidth('RECOMMANDE')+5;
+              doc.roundedRect(mx+mW-bw-2, y+2.5, bw, 4.5, 1.5, 1.5, 'F');
+              doc.setTextColor(...WH); doc.text('RECOMMANDE', mx+mW-bw, y+5.8);
+            }
+            doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+            doc.setTextColor(...(isRec?P:SL)); doc.text(m.label.toUpperCase(), mx+4, y+7.5);
+            let iy=y+13;
+            getInfo(m).forEach(l=>{
+              const ls=doc.splitTextToSize(l, mW-8);
+              doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
+              doc.text(ls, mx+4, iy); iy+=ls.length*4+1;
+            });
+          });
+          y += maxCardH+6;
+        }
+      }
+
+      // ── ITINÉRAIRE JOUR PAR JOUR ─────────────────────────────
+      secHead('Itineraire jour par jour');
 
       (data.itineraire||[]).forEach(day => {
-        check(18);
-        // En-tête du jour
-        const dayText = 'Jour '+day.jour+' - '+clean(day.date||'')+' | '+clean(day.titre||'');
-        const dLines = doc.splitTextToSize(dayText, CW-6);
-        const dH = dLines.length*4.5+4;
-        doc.setFillColor(...P);
-        doc.rect(M,y,CW,dH,'F');
-        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...WH);
-        doc.text(dLines, M+3, y+4);
-        y+=dH+2;
+        const col = dayRGB[(day.jour-1) % dayRGB.length];
 
-        // Mini-carte du jour (pré-chargée avec tuiles OSM)
-        if(dayMaps[day.jour]){
+        // En-tête du jour coloré
+        check(13);
+        doc.setFillColor(...col);
+        doc.roundedRect(M, y, CW, 11, 2, 2, 'F');
+        doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
+        doc.text('JOUR '+day.jour, M+4, y+4.5);
+        doc.setFontSize(11); doc.text(clean(day.titre||''), M+4, y+9);
+        if(day.date) {
+          doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(220,220,255);
+          doc.text(clean(day.date), W-M-3, y+9, {align:'right'});
+        }
+        y+=14;
+
+        // Mini-carte du jour
+        if(dayMaps[day.jour]) {
           const mapH=CW*260/700;
           check(mapH+4);
-          doc.addImage(dayMaps[day.jour],'JPEG',M,y,CW,mapH);
-          y+=mapH+4;
+          doc.setDrawColor(...col); doc.setLineWidth(0.5);
+          doc.roundedRect(M, y, CW, mapH, 2, 2, 'D');
+          doc.setLineWidth(0.2);
+          doc.addImage(dayMaps[day.jour],'JPEG', M+0.5, y+0.5, CW-1, mapH-1);
+          y+=mapH+5;
         }
 
+        // Activités — cards avec dot de timeline
         (day.activites||[]).forEach(a => {
-          check(14);
-          // Heure
-          doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...P);
-          doc.text(a.heure||'', M, y+3);
-          // Nom activité
-          doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...DK);
-          const aLines = doc.splitTextToSize(clean(a.activite), CW-18);
-          doc.text(aLines, M+15, y+3);
-          y+=aLines.length*4+2;
-          // Description
-          if(a.description) {
-            check(8); y+=1;
+          const nameL=doc.splitTextToSize(clean(a.activite||''), CW-26);
+          const descL=a.description ? doc.splitTextToSize(clean(a.description), CW-26) : [];
+          const cH=5+5.5+nameL.length*4.5+(descL.length?descL.length*3.5+2:0)+(a.prix_estime?4.5:0)+5;
+          check(cH+3);
+
+          // Dot de timeline
+          doc.setFillColor(...col); doc.circle(M+4, y+cH/2, 2.5, 'F');
+
+          // Carte activité
+          card(M+10, y, CW-10, cH, BG, BD);
+
+          // Badge heure
+          let bx=M+13;
+          if(a.heure) {
+            doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+            const htw=doc.getTextWidth(a.heure);
+            doc.setFillColor(...col); doc.roundedRect(bx, y+2.5, htw+5, 5, 1.5, 1.5, 'F');
+            doc.setTextColor(...WH); doc.text(a.heure, bx+2.5, y+6.3);
+            bx+=htw+10;
+          }
+          if(a.duree) {
+            doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...MU);
+            doc.text(clean(a.duree), bx, y+6.3);
+          }
+
+          let ay=y+10;
+          doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...SL);
+          doc.text(nameL, M+13, ay); ay+=nameL.length*4.5+1;
+
+          if(descL.length) {
             doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-            const dscLines = doc.splitTextToSize(clean(a.description), CW-15);
-            doc.text(dscLines, M+15, y);
-            y+=dscLines.length*3.5+1;
+            doc.text(descL, M+13, ay); ay+=descL.length*3.5+2;
           }
-          // Prix
           if(a.prix_estime) {
-            doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...GN);
-            doc.text(clean(a.prix_estime), M+15, y); y+=4;
+            doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...GN);
+            doc.text(clean(a.prix_estime), M+13, ay);
           }
-          doc.setDrawColor(...BD); doc.line(M+15,y,W-M,y); y+=3;
+          y+=cH+4;
         });
-        y+=3;
+        y+=5;
       });
 
-      // ── HÉBERGEMENTS ───────────────────────────────────────
+      // ── HÉBERGEMENTS ─────────────────────────────────────────
       if((data.hebergements||[]).length) {
-        sectionTitle('Hebergements recommandes');
+        secHead('Hebergements recommandes');
+
         (data.hebergements||[]).forEach(h => {
-          check(20);
-          doc.setFillColor(248,250,252);
-          doc.rect(M,y,CW,18,'F');
-          doc.setDrawColor(...BD); doc.rect(M,y,CW,18);
-          doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...DK);
-          doc.text(clean(h.nom), M+3, y+5);
-          if(h.prix_nuit) { doc.setTextColor(...GN); doc.text(h.prix_nuit+'/nuit', W-M-3, y+5, {align:'right'}); }
-          doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...GR);
-          doc.text('***'+(h.etoiles>3?'*'.repeat(h.etoiles-3):'')+' - '+clean(h.quartier||''), M+3, y+10);
-          if(h.description) {
-            doc.setFontSize(8); doc.setTextColor(71,85,105);
-            const d2=doc.splitTextToSize(clean(h.description),CW-6);
-            doc.text(d2.slice(0,2), M+3, y+14);
+          const isCdC = h.badge==='coup_de_coeur';
+          const isRap = h.badge==='rapport';
+          const aC = isCdC ? P : (isRap ? GN : AM);
+          const aLt = isCdC ? PLT : (isRap ? GNLT : AMLT);
+          const bLabel = isCdC ? 'Coup de coeur' : (isRap ? 'Meilleur rapport' : 'Budget');
+          const descL=h.description ? doc.splitTextToSize(clean(h.description), CW-12) : [];
+          const pts=(h.points_forts||[]).slice(0,3);
+          const cH=8+5.5+(descL.length?descL.length*3.5+4:0)+pts.length*4.5+7;
+          check(cH+4);
+
+          card(M, y, CW, cH, WH, BD);
+          // Accent gauche
+          doc.setFillColor(...aC); doc.roundedRect(M, y, 3.5, cH, 1.5, 1.5, 'F');
+          // Badge
+          doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+          const bww=doc.getTextWidth(bLabel)+8;
+          doc.setFillColor(...aLt); doc.roundedRect(W-M-bww-2, y+3, bww, 5.5, 1.5, 1.5, 'F');
+          doc.setTextColor(...aC); doc.text(bLabel, W-M-bww+2, y+7.2);
+
+          let hy=y+7;
+          doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...SL);
+          doc.text(clean(h.nom), M+7, hy); hy+=6;
+
+          // Étoiles + quartier + prix/nuit
+          const etoiles=Math.min(h.etoiles||3,5);
+          const stars='★'.repeat(etoiles)+'☆'.repeat(5-etoiles);
+          doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...AM);
+          doc.text(stars, M+7, hy);
+          if(h.quartier) {
+            doc.setTextColor(...MU); doc.setFontSize(8.5);
+            doc.text(' · '+clean(h.quartier), M+7+doc.getTextWidth(stars)+1, hy);
           }
-          y+=22;
+          if(h.prix_nuit) {
+            doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...GN);
+            doc.text(clean(h.prix_nuit)+'/nuit', W-M-4, hy, {align:'right'});
+          }
+          hy+=5;
+
+          if(descL.length) {
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
+            doc.text(descL, M+7, hy); hy+=descL.length*3.5+4;
+          }
+          pts.forEach(pt => {
+            doc.setFillColor(...aC); doc.circle(M+9, hy-1.5, 1.3, 'F');
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...SL);
+            doc.text(clean(pt), M+13, hy); hy+=4.5;
+          });
+          y+=cH+5;
         });
       }
 
-      // ── RESTAURANTS ────────────────────────────────────────
+      // ── RESTAURANTS ──────────────────────────────────────────
       if((data.restaurants||[]).length) {
-        sectionTitle('Restaurants incontournables');
-        (data.restaurants||[]).forEach(r => {
-          check(18);
-          doc.setFillColor(248,250,252);
-          doc.rect(M,y,CW,16,'F');
-          doc.setDrawColor(...BD); doc.rect(M,y,CW,16);
-          doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...DK);
-          doc.text(clean(r.nom), M+3, y+5);
-          doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-          doc.text([clean(r.type),r.prix||'',clean(r.quartier||'')].filter(Boolean).join(' - '), M+3, y+10);
-          if(r.specialite) { doc.setTextColor(180,83,9); doc.setFont('helvetica','italic'); doc.text(clean(r.specialite), M+3, y+14); }
-          y+=19;
-        });
+        secHead('Restaurants incontournables');
+
+        const rW=(CW-4)/2;
+        for(let ri=0; ri<data.restaurants.length; ri+=2) {
+          const row=data.restaurants.slice(ri, ri+2);
+          let maxRH=0;
+          row.forEach(r => {
+            const nl=doc.splitTextToSize(clean(r.nom||''), rW-10);
+            const dl=r.description ? doc.splitTextToSize(clean(r.description), rW-10) : [];
+            maxRH=Math.max(maxRH, 7+nl.length*4.5+5+(dl.length?dl.length*3.5+3:0)+(r.specialite?5:0)+5);
+          });
+          check(maxRH+5);
+
+          row.forEach((r, rIdx) => {
+            const rx2=M+rIdx*(rW+4);
+            const isChef=r.badge==='chef';
+            const isRap2=r.badge==='rapport';
+            const bCol2=isChef?P:(isRap2?GN:null);
+            card(rx2, y, rW, maxRH, BG, BD);
+
+            if(bCol2) {
+              doc.setFillColor(...bCol2); doc.setFontSize(7); doc.setFont('helvetica','bold');
+              const bT=isChef?'Coup de coeur':'Bon rapport';
+              const bwR=doc.getTextWidth(bT)+6;
+              doc.roundedRect(rx2+rW-bwR-2, y+2.5, bwR, 4.5, 1.5, 1.5, 'F');
+              doc.setTextColor(...WH); doc.text(bT, rx2+rW-bwR, y+5.8);
+            }
+
+            let ry2=y+7;
+            const nl2=doc.splitTextToSize(clean(r.nom||''), rW-10);
+            doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...SL);
+            doc.text(nl2, rx2+4, ry2); ry2+=nl2.length*4.5+1;
+
+            const meta=[clean(r.type||''),r.prix||'',clean(r.quartier||'')].filter(Boolean).join(' · ');
+            doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...MU);
+            doc.text(meta, rx2+4, ry2); ry2+=5;
+
+            if(r.description) {
+              const dl2=doc.splitTextToSize(clean(r.description), rW-10);
+              doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
+              doc.text(dl2, rx2+4, ry2); ry2+=dl2.length*3.5+3;
+            }
+            if(r.specialite) {
+              doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(...AM);
+              doc.text(clean(r.specialite), rx2+4, ry2);
+            }
+          });
+          y+=maxRH+6;
+        }
       }
 
-      // ── BUDGET ─────────────────────────────────────────────
-      const beRows=[['Trajet',be.trajet],['Hebergement',be.hebergement],['Activites',be.activites],['Repas',be.repas],['Divers',be.divers]].filter(([,v])=>v);
+      // ── BUDGET ESTIMÉ ─────────────────────────────────────────
+      const beRows=[
+        {l:'Trajet',      v:be.trajet,      col:[99,102,241]},
+        {l:'Hebergement', v:be.hebergement, col:[16,185,129]},
+        {l:'Activites',   v:be.activites,   col:[245,158,11]},
+        {l:'Repas',       v:be.repas,       col:[249,115,22]},
+        {l:'Divers',      v:be.divers,      col:[148,163,184]},
+      ].filter(r=>r.v);
+
       if(beRows.length||be.total_par_personne) {
-        sectionTitle('Budget estime');
-        beRows.forEach(([l,v]) => {
+        secHead('Budget estime');
+        const parseAmt=v=>parseInt((v||'').replace(/[^0-9]/g,''))||0;
+        const amounts=beRows.map(r=>parseAmt(r.v));
+        const maxAmt=Math.max(...amounts,1);
+        const barMaxW=CW-62;
+
+        beRows.forEach((r,ri2) => {
           check(9);
-          doc.setFillColor(248,250,252); doc.rect(M,y,CW,8,'F');
-          doc.setDrawColor(...BD); doc.line(M,y+8,W-M,y+8);
-          doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(...DK);
-          doc.text(l, M+3, y+5.5);
-          doc.text(clean(v), W-M-3, y+5.5, {align:'right'});
+          doc.setFillColor(ri2%2===0?248:252, ri2%2===0?250:253, ri2%2===0?252:254);
+          doc.rect(M, y, CW, 8, 'F');
+          doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...SL);
+          doc.text(r.l, M+3, y+5.5);
+          // Barre fond gris
+          doc.setFillColor(...BD); doc.roundedRect(M+50, y+2, barMaxW, 4, 1, 1, 'F');
+          // Barre colorée proportionnelle
+          const bw2=(amounts[ri2]/maxAmt)*barMaxW;
+          if(bw2>0) { doc.setFillColor(...r.col); doc.roundedRect(M+50, y+2, bw2, 4, 1, 1, 'F'); }
+          doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...SL);
+          doc.text(clean(r.v), W-M-2, y+5.5, {align:'right'});
           y+=8;
         });
+
         if(be.total_par_personne) {
-          check(10);
-          doc.setFillColor(...PL); doc.rect(M,y,CW,9,'F');
-          doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...P);
-          doc.text('Total par personne', M+3, y+6);
-          doc.text(clean(be.total_par_personne), W-M-3, y+6, {align:'right'});
-          y+=12;
+          check(12);
+          doc.setFillColor(...P); doc.roundedRect(M, y, CW, 10, 2, 2, 'F');
+          doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...WH);
+          doc.text('TOTAL PAR PERSONNE', M+4, y+7);
+          doc.text(clean(be.total_par_personne), W-M-4, y+7, {align:'right'});
+          y+=14;
         }
       }
 
-      // ── INFOS PRATIQUES ────────────────────────────────────
-      const tips=[['Meteo',cp.meteo],['Monnaie',cp.monnaie],['Langue',cp.langue],['Visa',cp.visa]].filter(([,v])=>v);
-      if(tips.length) {
-        sectionTitle('Infos pratiques');
-        tips.forEach(([l,v]) => {
-          const vLines=doc.splitTextToSize(clean(v),CW/2-8);
-          const tH=vLines.length*4+8;
-          check(tH);
-          doc.setFillColor(248,250,252); doc.rect(M,y,CW/2-4,tH,'F');
-          doc.setDrawColor(...BD); doc.rect(M,y,CW/2-4,tH);
-          doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...P);
-          doc.text(l, M+3, y+5);
-          doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(71,85,105);
-          doc.text(vLines, M+3, y+10);
-          y+=tH+3;
-        });
-        if((cp.conseils||[]).length) {
-          check(20); y+=2;
-          doc.setFillColor(240,253,244); doc.rect(M,y,CW,8+(cp.conseils.length*4),'F');
-          doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(22,101,52);
-          doc.text('Conseils essentiels', M+3, y+5); y+=7;
-          cp.conseils.forEach(c => {
-            check(6);
-            doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(21,128,61);
-            doc.text('- '+clean(c), M+3, y); y+=4.5;
+      // ── INFOS PRATIQUES ──────────────────────────────────────
+      const tips=[
+        {l:'Meilleure periode', v:cp.meilleure_periode, c:AM,         lt:AMLT},
+        {l:'Meteo',             v:cp.meteo,             c:P,          lt:PXLT},
+        {l:'Monnaie',          v:cp.monnaie,           c:GN,         lt:GNLT},
+        {l:'Langue',           v:cp.langue,            c:[139,92,246], lt:[245,243,255]},
+        {l:'Visa',             v:cp.visa,              c:SL,         lt:BG},
+      ].filter(t=>t.v);
+
+      if(tips.length||(cp.conseils||[]).length) {
+        secHead('Infos pratiques');
+        const tW=(CW-4)/2;
+
+        for(let ti=0; ti<tips.length; ti+=2) {
+          const pair=tips.slice(ti,ti+2);
+          let maxTH=0;
+          pair.forEach(t=>{
+            const vL=doc.splitTextToSize(clean(t.v), tW-10);
+            maxTH=Math.max(maxTH, 6+5+vL.length*4+6);
           });
+          check(maxTH+4);
+
+          pair.forEach((t,tIdx)=>{
+            const tx2=M+tIdx*(tW+4);
+            const vL=doc.splitTextToSize(clean(t.v), tW-10);
+            doc.setFillColor(...t.lt); doc.setDrawColor(...BD);
+            doc.roundedRect(tx2, y, tW, maxTH, 2, 2, 'FD');
+            doc.setFillColor(...t.c); doc.roundedRect(tx2, y, 3.5, maxTH, 1.5, 1.5, 'F');
+            doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...t.c);
+            doc.text(t.l.toUpperCase(), tx2+6, y+5.5);
+            doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...SL);
+            doc.text(vL, tx2+6, y+11);
+          });
+          y+=maxTH+5;
+        }
+
+        if((cp.conseils||[]).length) {
+          const consH=(cp.conseils.length*5.5)+14;
+          check(consH+4);
+          doc.setFillColor(...GNLT); doc.setDrawColor(...GN);
+          doc.roundedRect(M, y, CW, consH, 2, 2, 'FD');
+          doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...GN);
+          doc.text('Conseils essentiels', M+5, y+7);
+          let cy2=y+13;
+          cp.conseils.forEach(c=>{
+            check(6);
+            doc.setFillColor(...GN); doc.circle(M+8, cy2-1.5, 1.3, 'F');
+            doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(22,101,52);
+            const cL=doc.splitTextToSize(clean(c), CW-16);
+            doc.text(cL, M+12, cy2); cy2+=cL.length*4+2;
+          });
+          y+=consH+6;
         }
       }
 
-      // ── FOOTER ─────────────────────────────────────────────
-      check(12); y+=3;
-      doc.setDrawColor(...BD); doc.line(M,y,W-M,y); y+=5;
-      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...GR);
-      doc.text('Genere par Ask2Trip - ask2trip.fr - '+new Date().toLocaleDateString('fr-FR'), W/2, y, {align:'center'});
+      // ── NUMÉROS DE PAGE (toutes les pages de contenu) ─────────
+      const totalP=doc.internal.getNumberOfPages();
+      for(let p=2; p<=totalP; p++) {
+        doc.setPage(p);
+        doc.setFillColor(...BD); doc.rect(M, 289, CW, 0.3, 'F');
+        doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...MU);
+        doc.text('Itineraire genere par Ask2Trip · ask2trip.fr · '+new Date().toLocaleDateString('fr-FR'), M, 294);
+        doc.text('Page '+(p-1)+' / '+(totalP-1), W-M, 294, {align:'right'});
+      }
 
-      // Téléchargement — compatible iOS Safari + desktop
+      // ── TÉLÉCHARGEMENT ─────────────────────────────────────────
       const filename='itineraire-'+clean(destination).toLowerCase().replace(/[^a-z0-9]/g,'-')+'.pdf';
-      const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
-      if (isIOS) {
-        // iOS Safari : ouvrir dans un nouvel onglet (pas de téléchargement automatique)
-        const blob = doc.output('blob');
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      const isIOS=/iP(ad|hone|od)/.test(navigator.userAgent);
+      if(isIOS) {
+        const blob=doc.output('blob');
+        const blobUrl=URL.createObjectURL(blob);
+        window.open(blobUrl,'_blank');
+        setTimeout(()=>URL.revokeObjectURL(blobUrl),10000);
       } else {
         doc.save(filename);
       }
