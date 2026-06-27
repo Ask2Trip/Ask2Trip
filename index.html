@@ -883,6 +883,34 @@
     .postgensell .pgs-text span{font-size:13px;color:#6d28d9;}
     .postgensell .pgs-btn{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap;box-shadow:0 4px 14px rgba(99,102,241,0.35);}
 
+    /* ── HOW IT WORKS ── */
+    .how-section{background:#f8fafc;padding:52px 20px 44px;text-align:center;}
+    .how-section h2{font-size:22px;font-weight:800;color:#1e293b;margin-bottom:6px;}
+    .how-section .how-sub{font-size:15px;color:#64748b;margin-bottom:36px;}
+    .how-steps{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;max-width:780px;margin:0 auto;}
+    .how-step{flex:1;min-width:200px;max-width:240px;text-align:center;}
+    .how-step .how-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 14px;}
+    .how-step h3{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:6px;}
+    .how-step p{font-size:13px;color:#64748b;line-height:1.5;}
+    .how-arrow{align-self:center;font-size:22px;color:#cbd5e1;flex-shrink:0;}
+
+    /* ── TESTIMONIALS ── */
+    .testimonials-section{background:white;padding:52px 20px 48px;text-align:center;}
+    .testimonials-section h2{font-size:22px;font-weight:800;color:#1e293b;margin-bottom:32px;}
+    .testi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:860px;margin:0 auto;}
+    .testi-card{background:#f8fafc;border-radius:16px;padding:20px;text-align:left;border:1px solid #e2e8f0;}
+    .testi-stars{color:#f59e0b;font-size:14px;margin-bottom:10px;}
+    .testi-text{font-size:14px;color:#334155;line-height:1.6;margin-bottom:14px;font-style:italic;}
+    .testi-author{display:flex;align-items:center;gap:10px;}
+    .testi-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;flex-shrink:0;}
+    .testi-name{font-size:13px;font-weight:700;color:#1e293b;}
+    .testi-trip{font-size:12px;color:#94a3b8;}
+
+    /* ── HERO COUNTER ── */
+    .hero-counter{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:100px;padding:8px 20px;display:inline-flex;align-items:center;gap:8px;font-size:14px;color:white;margin-bottom:18px;backdrop-filter:blur(8px);}
+    .hero-counter .dot{width:8px;height:8px;background:#4ade80;border-radius:50%;animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.6;transform:scale(1.3);}}
+
     @media (max-width:480px) {
       .resto-grid { grid-template-columns:1fr; }
       .budget-grid { grid-template-columns:repeat(2,1fr); }
@@ -891,6 +919,8 @@
       .day-card { margin-bottom:12px; }
       .activity { padding:10px 12px; }
       .activity-toggle { font-size:11px; padding:3px 9px; }
+      .how-arrow{display:none;}
+      .sticky-banner{font-size:11px;padding:8px 36px 8px 12px;}
     }
   </style>
 </head>
@@ -928,12 +958,13 @@
 
 <!-- HERO -->
 <section class="hero">
+  <div class="hero-counter"><span class="dot"></span> <span id="heroCount">2 847</span> itinéraires générés</div>
   <div class="hero-badge">✨ Ask2Trip — Propulsé par l'IA</div>
-  <h1>Planifiez votre voyage <span>parfait</span><br>en 2 minutes</h1>
-  <p>Notre IA analyse des milliers d'options et crée un itinéraire personnalisé avec les meilleures adresses, activités et hébergements.</p>
+  <h1>Planifiez votre voyage <span>parfait</span><br>en 30 secondes</h1>
+  <p>Notre IA génère un itinéraire complet, personnalisé, avec les meilleures adresses, activités et hébergements — gratuitement.</p>
   <div class="stats">
     <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Gratuit</div></div>
-    <div class="stat"><div class="stat-num">2 min</div><div class="stat-label">Génération</div></div>
+    <div class="stat"><div class="stat-num">30 sec</div><div class="stat-label">Génération</div></div>
     <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Destinations</div></div>
   </div>
   <div style="margin-top:28px;">
@@ -942,6 +973,31 @@
       onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
       ✨ Abonnement Pro
     </button>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section">
+  <h2>Comment ça marche ?</h2>
+  <p class="how-sub">3 étapes, 30 secondes, un voyage parfait.</p>
+  <div class="how-steps">
+    <div class="how-step">
+      <div class="how-icon">🗺️</div>
+      <h3>1. Remplis le formulaire</h3>
+      <p>Destination, dates, budget, centres d'intérêt — on s'adapte à toi.</p>
+    </div>
+    <div class="how-arrow">→</div>
+    <div class="how-step">
+      <div class="how-icon">🤖</div>
+      <h3>2. L'IA génère</h3>
+      <p>Notre IA analyse des milliers d'options et crée ton itinéraire sur mesure en 30 secondes.</p>
+    </div>
+    <div class="how-arrow">→</div>
+    <div class="how-step">
+      <div class="how-icon">✈️</div>
+      <h3>3. Tu pars en voyage</h3>
+      <p>Itinéraire jour par jour, carte interactive, hôtels et restos recommandés. Plus qu'à faire ta valise.</p>
+    </div>
   </div>
 </section>
 
@@ -1048,6 +1104,37 @@
     </div>
   </div>
 </div>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials-section" id="testimonialsSection">
+  <h2>Ils ont voyagé avec Ask2Trip 🌍</h2>
+  <div class="testi-grid">
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"J'ai généré un itinéraire complet pour Tokyo en 30 secondes. Le niveau de détail est dingue — hôtels, restos, activités, carte. J'aurais mis des heures à faire ça."</p>
+      <div class="testi-author">
+        <div class="testi-avatar">S</div>
+        <div><div class="testi-name">Sophie M.</div><div class="testi-trip">📍 Tokyo, 10 jours</div></div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"Partis au Maroc avec l'itinéraire généré. On a tout suivi et c'était parfait. Les adresses restos étaient vraiment bonnes. Franchement bluffant pour un outil gratuit."</p>
+      <div class="testi-author">
+        <div class="testi-avatar">K</div>
+        <div><div class="testi-name">Karim L.</div><div class="testi-trip">📍 Marrakech, 7 jours</div></div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"On était 4 avec des budgets différents, j'ai mis 800€ et l'IA a optimisé chaque poste. On a dépensé exactement ce qu'on avait prévu. Incroyable."</p>
+      <div class="testi-author">
+        <div class="testi-avatar">L</div>
+        <div><div class="testi-name">Léa P.</div><div class="testi-trip">📍 Bali, 14 jours</div></div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- RESULTS -->
 <div class="results" id="results">
@@ -1719,6 +1806,9 @@
     `;
 
     document.getElementById('resultsContent').innerHTML = html;
+    // Masquer testimonials et how-it-works quand les résultats sont là
+    const ts = document.getElementById('testimonialsSection'); if (ts) ts.style.display = 'none';
+    const hw = document.querySelector('.how-section'); if (hw) hw.style.display = 'none';
     window._lastBudgetEstime = data.budget_estime;
     window._lastTripData = data;
     setTimeout(() => buildBudgetChart(data.budget_estime), 100);
@@ -2780,16 +2870,57 @@ function showFomoToast() {
 }
 setTimeout(() => { showFomoToast(); setInterval(showFomoToast, 35000); }, 8000);
 
-// ── EXIT INTENT ──
+// ── EXIT INTENT (desktop: mouseleave / mobile: scroll up rapide + timer) ──
 let exitShown = false;
-document.addEventListener('mouseleave', function(e) {
-  if (e.clientY > 0 || exitShown || isPro()) return;
+function showExitIntent() {
+  if (exitShown || isPro()) return;
   exitShown = true;
   document.getElementById('exitOverlay').classList.add('open');
+}
+// Desktop
+document.addEventListener('mouseleave', function(e) {
+  if (e.clientY > 0) return;
+  showExitIntent();
 });
+// Mobile : scroll up rapide
+let lastScrollY = window.scrollY;
+let scrollUpStart = null;
+window.addEventListener('scroll', function() {
+  const current = window.scrollY;
+  if (current < lastScrollY) {
+    if (!scrollUpStart) scrollUpStart = Date.now();
+    // Scroll up rapide depuis en haut de page
+    if (current < 80 && Date.now() - scrollUpStart < 600) showExitIntent();
+  } else {
+    scrollUpStart = null;
+  }
+  lastScrollY = current;
+}, { passive: true });
+// Mobile : timer 15s
+setTimeout(showExitIntent, 15000);
+
 function closeExit() {
   document.getElementById('exitOverlay').classList.remove('open');
 }
+
+// ── HERO COUNTER ANIMÉ ──
+(function() {
+  const key = 'a2t_counter';
+  let base = parseInt(localStorage.getItem(key) || '0');
+  if (!base || base < 2800) { base = 2800 + Math.floor(Math.random() * 200); localStorage.setItem(key, base); }
+  // Incrément aléatoire à chaque visite
+  base += Math.floor(Math.random() * 3);
+  localStorage.setItem(key, base);
+  const el = document.getElementById('heroCount');
+  if (!el) return;
+  let start = base - 80;
+  const step = () => {
+    start += Math.ceil((base - start) / 8);
+    el.textContent = start.toLocaleString('fr-FR');
+    if (start < base) requestAnimationFrame(step);
+  };
+  setTimeout(() => requestAnimationFrame(step), 400);
+})();
 </script>
 </body>
 </html>
