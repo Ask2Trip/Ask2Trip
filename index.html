@@ -3299,18 +3299,17 @@ async function syncProToSupabase() {
 // ── Sauvegarde itinéraire ────────────────────────────────────────────────────
 async function saveItinerary(data, params) {
   if (!window._sbUser) return;
-  try {
-    await window._sb.from('itineraires').insert({
-      user_id: window._sbUser.id,
-      destination: params.destination,
-      date_debut: params.dateDebut || null,
-      date_fin: params.dateFin || null,
-      budget: parseInt(params.budget) || null,
-      voyageurs: parseInt(params.voyageurs) || 1,
-      itinerary_data: data,
-      params_data: params
-    });
-  } catch(e) { /* silencieux */ }
+  const { error } = await window._sb.from('itineraires').insert({
+    user_id: window._sbUser.id,
+    destination: params.destination,
+    date_debut: params.dateDebut || null,
+    date_fin: params.dateFin || null,
+    budget: parseInt(params.budget) || null,
+    voyageurs: parseInt(params.voyageurs) || 1,
+    itinerary_data: data,
+    params_data: params
+  });
+  if (error) console.error('[Ask2Trip] saveItinerary error:', error.message, error.details);
 }
 
 // ── Recharge un itinéraire sauvegardé ───────────────────────────────────────
@@ -3484,9 +3483,12 @@ async function sendMagicLink() {
   }
   const btn = document.getElementById('authSendBtn');
   if (btn) { btn.textContent = 'Envoi en cours…'; btn.disabled = true; btn.style.opacity = '0.7'; }
+  const redirectTo = window.location.hostname === 'localhost'
+    ? 'https://ask2trip.fr'
+    : window.location.origin;
   const { error } = await window._sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin }
+    options: { emailRedirectTo: redirectTo }
   });
   if (error) {
     const err = document.getElementById('authError');
