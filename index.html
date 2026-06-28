@@ -77,7 +77,7 @@
 
     /* ── NAVBAR ───────────────────────────────────── */
     .navbar {
-      position: sticky; top: 0; z-index: 1000;
+      position: sticky; top: 0; z-index: 9999;
       height: var(--nav-h);
       background: rgba(255,255,255,0.88);
       backdrop-filter: blur(18px);
@@ -850,7 +850,7 @@
       .activity-details [data-gyg-widget] { transform-origin:top left; font-size:13px; }
     }
     /* ── STICKY BANNER ── */
-    .sticky-banner{position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:white;text-align:center;padding:9px 44px 9px 16px;font-size:13px;font-weight:600;line-height:1.4;}
+    .sticky-banner{position:fixed;top:var(--nav-h);left:0;right:0;z-index:9998;background:linear-gradient(90deg,#6366f1,#8b5cf6);color:white;text-align:center;padding:9px 44px 9px 16px;font-size:13px;font-weight:600;line-height:1.4;}
     .sticky-banner span{opacity:.85;font-weight:400;}
     .sticky-banner .sb-close{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:white;cursor:pointer;font-size:18px;opacity:.7;padding:0;}
     .sticky-banner .sb-close:hover{opacity:1;}
@@ -1439,6 +1439,7 @@
       await new Promise(r => setTimeout(r, 400));
       document.getElementById('loading').classList.remove('show');
       renderResults(data, { destination, depart, dateDebut, dateFin, budget, voyageurs });
+      saveItinerary(data, { destination, depart, dateDebut, dateFin, budget, voyageurs });
       showGenBanner();
       document.getElementById('results').classList.add('show');
       document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -3199,4 +3200,309 @@ function showFomoToast() {
   if (!toast) return;
   const d = fomoData[fomoIdx % fomoData.length];
   fomoIdx++;
-  document.getElementByI
+  document.getElementById('fomoFlag').textContent = d.flag;
+  document.getElementById('fomoName').textContent = d.name;
+  document.getElementById('fomoText').textContent = d.text;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+// Ne pas afficher les popups marketing si Pro ou si on revient de Stripe
+const _isPaymentContext = document.referrer.includes('stripe.com') || document.referrer.includes('buy.stripe.com') || new URLSearchParams(window.location.search).has('stripe_session');
+const _suppressMarketing = isPro() || _isPaymentContext;
+
+if (!_suppressMarketing) {
+  setTimeout(() => { showFomoToast(); setInterval(showFomoToast, 35000); }, 8000);
+}
+
+// ── EXIT INTENT (desktop: mouseleave / mobile: scroll up rapide + timer) ──
+let exitShown = false;
+function showExitIntent() {
+  if (exitShown || isPro() || _isPaymentContext) return;
+  exitShown = true;
+  document.getElementById('exitOverlay').classList.add('open');
+}
+if (!_suppressMarketing) {
+  // Desktop
+  document.addEventListener('mouseleave', function(e) {
+    if (e.clientY > 0) return;
+    showExitIntent();
+  });
+  // Mobile : scroll up rapide
+  let lastScrollY = window.scrollY;
+  let scrollUpStart = null;
+  window.addEventListener('scroll', function() {
+    const current = window.scrollY;
+    if (current < lastScrollY) {
+      if (!scrollUpStart) scrollUpStart = Date.now();
+      if (current < 80 && Date.now() - scrollUpStart < 600) showExitIntent();
+    } else {
+      scrollUpStart = null;
+    }
+    lastScrollY = current;
+  }, { passive: true });
+  // Mobile : timer 15s
+  setTimeout(showExitIntent, 15000);
+}
+
+function closeExit() {
+  document.getElementById('exitOverlay').classList.remove('open');
+}
+
+// ── HERO COUNTER ANIMÉ ──
+(function() {
+  const key = 'a2t_counter';
+  let base = parseInt(localStorage.getItem(key) || '0');
+  if (!base || base < 2800) { base = 2800 + Math.floor(Math.random() * 200); localStorage.setItem(key, base); }
+  // Incrément lent : +1 toutes les 2 visites en moyenne
+  if (Math.random() < 0.5) { base += 1; localStorage.setItem(key, base); }
+  const el = document.getElementById('heroCount');
+  if (!el) return;
+  let start = base - 18;
+  const step = () => {
+    start += Math.ceil((base - start) / 6);
+    el.textContent = start.toLocaleString('fr-FR');
+    if (start < base) requestAnimationFrame(step);
+  };
+  setTimeout(() => requestAnimationFrame(step), 400);
+})();
+</script>
+
+<script>
+// ── SUPABASE AUTH ────────────────────────────────────────────────────────────
+window._sb = window.supabase.createClient(
+  'https://kglqznsmkqihdbrssefe.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnbHF6bnNta3FpaGRicnNzZWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NTA5OTUsImV4cCI6MjA5ODIyNjk5NX0.WsZAjSehdAR6qIpdB-W1NMYaJIfVe6WPVG1ONNwy79U'
+);
+window._sbUser = null;
+
+function _sbIsPro() {
+  return window._sbUser?.user_metadata?.is_pro === true;
+}
+
+function _syncProFromSupabase() {
+  if (_sbIsPro()) {
+    localStorage.setItem('a2t_pro', 'UNLOCKED');
+    document.cookie = 'a2t_pro=UNLOCKED; max-age=31536000; path=/; SameSite=Lax';
+    updateCounter();
+  }
+}
+
+async function syncProToSupabase() {
+  if (!window._sbUser || _sbIsPro()) return;
+  const localPro = localStorage.getItem('a2t_pro') === 'UNLOCKED' ||
+    document.cookie.includes('a2t_pro=UNLOCKED');
+  if (localPro) {
+    await window._sb.auth.updateUser({ data: { is_pro: true } });
+  }
+}
+
+// ── Sauvegarde itinéraire ────────────────────────────────────────────────────
+async function saveItinerary(data, params) {
+  if (!window._sbUser) return;
+  try {
+    await window._sb.from('itineraires').insert({
+      user_id: window._sbUser.id,
+      destination: params.destination,
+      date_debut: params.dateDebut || null,
+      date_fin: params.dateFin || null,
+      budget: parseInt(params.budget) || null,
+      voyageurs: parseInt(params.voyageurs) || 1,
+      itinerary_data: data,
+      params_data: params
+    });
+  } catch(e) { /* silencieux */ }
+}
+
+// ── Recharge un itinéraire sauvegardé ───────────────────────────────────────
+function reloadItinerary(id) {
+  closeAuthModal();
+  window._sb.from('itineraires').select('*').eq('id', id).single().then(({ data: row }) => {
+    if (!row) return;
+    renderResults(row.itinerary_data, row.params_data);
+    document.getElementById('results')?.classList.add('show');
+    document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' });
+  });
+}
+
+function updateNavAuthBtn() {
+  const btn = document.getElementById('navAuthBtn');
+  if (!btn) return;
+  if (window._sbUser) {
+    const pro = _sbIsPro() || isPro();
+    btn.textContent = pro ? '✨ Mon compte' : '👤 Mon compte';
+    btn.style.background = pro
+      ? 'linear-gradient(135deg,#6366f1,#4f46e5)'
+      : 'rgba(99,102,241,0.12)';
+    btn.style.color = pro ? 'white' : '#6366f1';
+    btn.style.boxShadow = pro ? '' : 'none';
+  } else {
+    btn.textContent = 'Connexion';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.boxShadow = '';
+  }
+}
+
+// Charge la session existante au démarrage
+window._sb.auth.getSession().then(({ data: { session } }) => {
+  window._sbUser = session?.user || null;
+  _syncProFromSupabase();
+  updateNavAuthBtn();
+});
+
+// Écoute les changements d'état auth (login, logout, magic link)
+window._sb.auth.onAuthStateChange((event, session) => {
+  window._sbUser = session?.user || null;
+  _syncProFromSupabase();
+  updateNavAuthBtn();
+  if (event === 'SIGNED_IN') {
+    closeAuthModal();
+    syncProToSupabase();
+    updateCounter();
+  }
+});
+
+// ── Modal helpers ────────────────────────────────────────────────────────────
+function handleNavAuthClick() {
+  if (window._sbUser) showAccountModal();
+  else showAuthModal();
+}
+
+let _authStep = 'email';
+
+function showAuthModal() {
+  _authStep = 'email';
+  renderAuthContent();
+  document.getElementById('authOverlay').classList.add('open');
+}
+
+function closeAuthModal() {
+  document.getElementById('authOverlay').classList.remove('open');
+}
+
+async function showAccountModal() {
+  const content = document.getElementById('authContent');
+  const email = window._sbUser.email;
+  const pro = _sbIsPro() || isPro();
+
+  // Squelette immédiat
+  content.innerHTML = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="width:52px;height:52px;background:linear-gradient(135deg,#6366f1,#4f46e5);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 10px;">
+        ${pro ? '✨' : '👤'}
+      </div>
+      <h3 style="font-size:17px;font-weight:800;margin-bottom:3px;">${pro ? 'Compte Pro actif' : 'Mon compte'}</h3>
+      <p style="color:#64748b;font-size:13px;">${email}</p>
+    </div>
+    ${pro
+      ? '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:10px 16px;color:#15803d;font-size:13px;font-weight:600;text-align:center;margin-bottom:16px;">✨ Pro actif — Générations illimitées</div>'
+      : '<button onclick="closeAuthModal();showPaywall(\'\');" style="width:100%;padding:11px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;margin-bottom:10px;">✨ Passer à Pro</button>'
+    }
+    <div id="historySection" style="margin-bottom:14px;">
+      <p style="color:#94a3b8;font-size:13px;text-align:center;padding:8px 0;">⏳ Chargement de l'historique…</p>
+    </div>
+    <button onclick="signOutUser()" style="width:100%;padding:11px;border:1.5px solid #e2e8f0;background:white;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;color:#64748b;font-family:Inter,sans-serif;">
+      Se déconnecter
+    </button>`;
+
+  document.getElementById('authOverlay').classList.add('open');
+
+  // Fetch historique
+  const { data: rows } = await window._sb
+    .from('itineraires')
+    .select('id, destination, date_debut, date_fin, voyageurs, created_at')
+    .eq('user_id', window._sbUser.id)
+    .order('created_at', { ascending: false })
+    .limit(8);
+
+  const histEl = document.getElementById('historySection');
+  if (!histEl) return;
+
+  if (!rows || rows.length === 0) {
+    histEl.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:6px 0;">Aucun voyage sauvegardé pour l\'instant.</p>';
+    return;
+  }
+
+  const fmt = d => d ? new Date(d).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}) : '';
+  histEl.innerHTML = `
+    <p style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Mes voyages (${rows.length})</p>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${rows.map(r => `
+        <button onclick="reloadItinerary('${r.id}')"
+          style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #e2e8f0;background:white;border-radius:12px;cursor:pointer;font-family:Inter,sans-serif;text-align:left;transition:border-color 0.15s;"
+          onmouseover="this.style.borderColor='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0'">
+          <span style="font-size:20px;">🌍</span>
+          <span style="flex:1;">
+            <span style="display:block;font-size:13px;font-weight:700;color:#0f172a;">${r.destination}</span>
+            <span style="font-size:11px;color:#94a3b8;">${fmt(r.date_debut)}${r.date_fin ? ' → '+fmt(r.date_fin) : ''} · ${r.voyageurs||1} voyageur${(r.voyageurs||1)>1?'s':''}</span>
+          </span>
+          <span style="font-size:13px;color:#6366f1;font-weight:600;">Revoir →</span>
+        </button>`).join('')}
+    </div>`;
+}
+
+function renderAuthContent() {
+  const content = document.getElementById('authContent');
+  if (_authStep === 'email') {
+    content.innerHTML = `
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:38px;margin-bottom:12px;">✉️</div>
+        <h3 style="font-size:20px;font-weight:800;margin-bottom:8px;">Connexion / Inscription</h3>
+        <p style="color:#64748b;font-size:13px;line-height:1.55;">Entre ton email — on t'envoie un lien magique.<br>Pas de mot de passe à retenir.</p>
+      </div>
+      <input type="email" id="authEmailInput" placeholder="ton@email.com"
+        style="width:100%;padding:12px 16px;border:1.5px solid #e2e8f0;border-radius:12px;font-size:15px;font-family:Inter,sans-serif;margin-bottom:12px;outline:none;transition:border-color 0.2s;"
+        onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#e2e8f0'"
+        onkeydown="if(event.key==='Enter')sendMagicLink()" />
+      <button onclick="sendMagicLink()" id="authSendBtn"
+        style="width:100%;padding:13px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+        Recevoir le lien ✨
+      </button>
+      <p id="authError" style="color:#ef4444;font-size:13px;margin-top:8px;display:none;text-align:center;"></p>`;
+    setTimeout(() => document.getElementById('authEmailInput')?.focus(), 80);
+  } else {
+    content.innerHTML = `
+      <div style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;">📬</div>
+        <h3 style="font-size:20px;font-weight:800;margin-bottom:8px;">Vérifie tes emails !</h3>
+        <p style="color:#64748b;font-size:14px;line-height:1.6;">On t'a envoyé un lien de connexion.<br>Clique dessus pour être connecté automatiquement.</p>
+        <button onclick="_authStep='email';renderAuthContent()"
+          style="margin-top:20px;background:none;border:none;color:#6366f1;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">
+          ← Changer d'email
+        </button>
+      </div>`;
+  }
+}
+
+async function sendMagicLink() {
+  const emailInput = document.getElementById('authEmailInput');
+  const email = (emailInput?.value || '').trim();
+  if (!email || !email.includes('@')) {
+    const err = document.getElementById('authError');
+    if (err) { err.textContent = 'Entre un email valide.'; err.style.display = 'block'; }
+    return;
+  }
+  const btn = document.getElementById('authSendBtn');
+  if (btn) { btn.textContent = 'Envoi en cours…'; btn.disabled = true; btn.style.opacity = '0.7'; }
+  const { error } = await window._sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin }
+  });
+  if (error) {
+    const err = document.getElementById('authError');
+    if (err) { err.textContent = 'Erreur : ' + error.message; err.style.display = 'block'; }
+    if (btn) { btn.textContent = 'Recevoir le lien ✨'; btn.disabled = false; btn.style.opacity = '1'; }
+    return;
+  }
+  _authStep = 'sent';
+  renderAuthContent();
+}
+
+async function signOutUser() {
+  await window._sb.auth.signOut();
+  closeAuthModal();
+  updateNavAuthBtn();
+}
+</script>
+</body>
+</html>
