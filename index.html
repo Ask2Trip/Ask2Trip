@@ -14,6 +14,8 @@
   <!-- Leaflet map -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- Supabase Auth -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <!-- GetYourGuide Analytics + Travelpayouts Drive : chargés uniquement après consentement cookies -->
   <script>
     function loadAffiliateTrackers() {
@@ -928,9 +930,51 @@
       .how-arrow{display:none;}
       .sticky-banner{font-size:11px;padding:8px 36px 8px 12px;}
     }
+
+    /* ── AUTH MODAL ────────────────────────────────── */
+    .auth-overlay {
+      position:fixed;inset:0;z-index:9999;
+      background:rgba(15,23,42,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      display:flex;align-items:center;justify-content:center;padding:24px;
+      opacity:0;pointer-events:none;transition:opacity 0.22s var(--ease);
+    }
+    .auth-overlay.open { opacity:1;pointer-events:auto; }
+    .auth-box {
+      background:white;border-radius:24px;padding:36px 32px;
+      width:100%;max-width:400px;position:relative;
+      box-shadow:0 24px 80px rgba(99,102,241,0.22);
+      transform:translateY(20px);transition:transform 0.22s var(--ease);
+    }
+    .auth-overlay.open .auth-box { transform:translateY(0); }
+    .auth-close {
+      position:absolute;top:16px;right:16px;background:none;border:none;
+      font-size:18px;cursor:pointer;color:#94a3b8;width:32px;height:32px;
+      border-radius:8px;display:flex;align-items:center;justify-content:center;
+      transition:background 0.15s;
+    }
+    .auth-close:hover { background:#f1f5f9;color:#0f172a; }
   </style>
 </head>
 <body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-mark">✈️</div>
+      <span>Ask2Trip</span>
+    </a>
+    <button class="nav-pro-btn" id="navAuthBtn" onclick="handleNavAuthClick()">Connexion</button>
+  </div>
+</nav>
+
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="authOverlay" onclick="if(event.target===this)closeAuthModal()">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuthModal()">✕</button>
+    <div id="authContent"></div>
+  </div>
+</div>
 
 <!-- STICKY BANNER -->
 <div class="sticky-banner" id="stickyBanner">
@@ -1903,8 +1947,11 @@
     document.cookie = 'a2t_pro=UNLOCKED; max-age=31536000; path=/; SameSite=Lax';
   }
   function isPro() {
+    // 1. Supabase session (synchronous — synced to localStorage on login)
+    if (typeof _sbIsPro === 'function' && _sbIsPro()) return true;
+    // 2. localStorage
     if (localStorage.getItem('a2t_pro') === 'UNLOCKED') return true;
-    // Fallback cookie (persiste même si localStorage est vidé sur mobile)
+    // 3. Fallback cookie (persiste même si localStorage est vidé sur mobile)
     const cookie = document.cookie.split(';').find(c => c.trim().startsWith('a2t_pro='));
     if (cookie && cookie.includes('UNLOCKED')) {
       localStorage.setItem('a2t_pro', 'UNLOCKED'); // resync localStorage
@@ -2712,7 +2759,14 @@
         localStorage.setItem('a2t_license', 'stripe:' + sid);
         _setProCookie();
         window.history.replaceState({}, '', window.location.pathname);
-        alert('✅ Paiement confirmé ! Bienvenue dans Ask2Trip Pro 🎉');
+        // Synchro Supabase si connecté
+        if (window._sb && window._sbUser) {
+          window._sb.auth.updateUser({ data: { is_pro: true } });
+          alert('✅ Paiement confirmé ! Bienvenue dans Ask2Trip Pro 🎉');
+        } else {
+          const go = confirm('✅ Paiement confirmé ! Bienvenue dans Ask2Trip Pro 🎉\n\nCrée un compte pour ne plus jamais perdre ton accès Pro, même si tu changes d\'appareil ou d\'navigateur.');
+          if (go) setTimeout(() => showAuthModal(), 300);
+        }
       }
     } catch {}
   })();
@@ -3145,71 +3199,4 @@ function showFomoToast() {
   if (!toast) return;
   const d = fomoData[fomoIdx % fomoData.length];
   fomoIdx++;
-  document.getElementById('fomoFlag').textContent = d.flag;
-  document.getElementById('fomoName').textContent = d.name;
-  document.getElementById('fomoText').textContent = d.text;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 4000);
-}
-// Ne pas afficher les popups marketing si Pro ou si on revient de Stripe
-const _isPaymentContext = document.referrer.includes('stripe.com') || document.referrer.includes('buy.stripe.com') || new URLSearchParams(window.location.search).has('stripe_session');
-const _suppressMarketing = isPro() || _isPaymentContext;
-
-if (!_suppressMarketing) {
-  setTimeout(() => { showFomoToast(); setInterval(showFomoToast, 35000); }, 8000);
-}
-
-// ── EXIT INTENT (desktop: mouseleave / mobile: scroll up rapide + timer) ──
-let exitShown = false;
-function showExitIntent() {
-  if (exitShown || isPro() || _isPaymentContext) return;
-  exitShown = true;
-  document.getElementById('exitOverlay').classList.add('open');
-}
-if (!_suppressMarketing) {
-  // Desktop
-  document.addEventListener('mouseleave', function(e) {
-    if (e.clientY > 0) return;
-    showExitIntent();
-  });
-  // Mobile : scroll up rapide
-  let lastScrollY = window.scrollY;
-  let scrollUpStart = null;
-  window.addEventListener('scroll', function() {
-    const current = window.scrollY;
-    if (current < lastScrollY) {
-      if (!scrollUpStart) scrollUpStart = Date.now();
-      if (current < 80 && Date.now() - scrollUpStart < 600) showExitIntent();
-    } else {
-      scrollUpStart = null;
-    }
-    lastScrollY = current;
-  }, { passive: true });
-  // Mobile : timer 15s
-  setTimeout(showExitIntent, 15000);
-}
-
-function closeExit() {
-  document.getElementById('exitOverlay').classList.remove('open');
-}
-
-// ── HERO COUNTER ANIMÉ ──
-(function() {
-  const key = 'a2t_counter';
-  let base = parseInt(localStorage.getItem(key) || '0');
-  if (!base || base < 2800) { base = 2800 + Math.floor(Math.random() * 200); localStorage.setItem(key, base); }
-  // Incrément lent : +1 toutes les 2 visites en moyenne
-  if (Math.random() < 0.5) { base += 1; localStorage.setItem(key, base); }
-  const el = document.getElementById('heroCount');
-  if (!el) return;
-  let start = base - 18;
-  const step = () => {
-    start += Math.ceil((base - start) / 6);
-    el.textContent = start.toLocaleString('fr-FR');
-    if (start < base) requestAnimationFrame(step);
-  };
-  setTimeout(() => requestAnimationFrame(step), 400);
-})();
-</script>
-</body>
-</html>
+  document.getElementByI
