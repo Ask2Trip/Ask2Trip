@@ -3283,11 +3283,31 @@ function _syncProFromSupabase() {
 
 async function syncProToSupabase() {
   if (!window._sbUser || _sbIsPro()) return;
+
+  // 1. localStorage/cookie déjà unlocked → sync Supabase
   const localPro = localStorage.getItem('a2t_pro') === 'UNLOCKED' ||
     document.cookie.includes('a2t_pro=UNLOCKED');
   if (localPro) {
     await window._sb.auth.updateUser({ data: { is_pro: true } });
+    return;
   }
+
+  // 2. Vérification Stripe par email (nouveau device, localStorage vide)
+  try {
+    const r = await fetch('/api/verify-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: window._sbUser.email })
+    });
+    const d = await r.json();
+    if (d.valid) {
+      localStorage.setItem('a2t_pro', 'UNLOCKED');
+      document.cookie = 'a2t_pro=UNLOCKED; max-age=31536000; path=/; SameSite=Lax';
+      await window._sb.auth.updateUser({ data: { is_pro: true } });
+      _syncProFromSupabase();
+      updateNavAuthBtn();
+    }
+  } catch {}
 }
 
 // ── Sauvegarde itinéraire ────────────────────────────────────────────────────
