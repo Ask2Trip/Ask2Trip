@@ -1250,19 +1250,8 @@
 
     </div>
 
-    <div style="text-align:center;margin-top:4px;">
-      <button onclick="showUnlockForm()" style="border:none;background:none;color:#94a3b8;font-size:11px;cursor:pointer;text-decoration:underline;">Déjà abonné ? Activer avec ton email →</button>
-    </div>
-    <div id="unlockForm" style="display:none;margin-top:12px;">
-      <div style="display:flex;gap:8px;">
-        <input id="licenseInput" type="text" placeholder="Email d'achat ou ancienne clé de licence…"
-          style="flex:1;padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-family:Inter,sans-serif;outline:none;" />
-        <button onclick="verifyLicense()"
-          style="padding:10px 16px;background:var(--primary);color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap;">
-          Activer
-        </button>
-      </div>
-      <div id="licenseMsg" style="font-size:13px;margin-top:8px;min-height:18px;"></div>
+    <div style="text-align:center;margin-top:8px;">
+      <button onclick="closePaywall();handleNavAuthClick()" style="border:none;background:none;color:#94a3b8;font-size:11px;cursor:pointer;text-decoration:underline;">Déjà abonné ? Connecte-toi →</button>
     </div>
   </div>
 </div>
