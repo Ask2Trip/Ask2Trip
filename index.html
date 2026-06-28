@@ -2737,8 +2737,8 @@
     }
   }
 
-  // Auto-débloquage après retour de Stripe (stripe_session dans l'URL)
-  (async function checkStripeReturn() {
+  // Auto-débloquage après retour de Stripe — appelé après chargement session Supabase
+  window._checkStripeReturn = async function() {
     try {
       const params = new URLSearchParams(window.location.search);
       const sid = params.get('stripe_session');
@@ -2754,17 +2754,20 @@
         localStorage.setItem('a2t_license', 'stripe:' + sid);
         _setProCookie();
         window.history.replaceState({}, '', window.location.pathname);
-        // Synchro Supabase si connecté
-        if (window._sb && window._sbUser) {
-          window._sb.auth.updateUser({ data: { is_pro: true } });
+        if (window._sbUser) {
+          // Déjà connecté → sync direct
+          await window._sb.auth.updateUser({ data: { is_pro: true } });
+          _syncProFromSupabase();
+          updateNavAuthBtn();
           alert('✅ Paiement confirmé ! Bienvenue dans Ask2Trip Pro 🎉');
         } else {
-          const go = confirm('✅ Paiement confirmé ! Bienvenue dans Ask2Trip Pro 🎉\n\nCrée un compte pour ne plus jamais perdre ton accès Pro, même si tu changes d\'appareil ou d\'navigateur.');
-          if (go) setTimeout(() => showAuthModal(), 300);
+          // Pas connecté → propose de créer un compte
+          const go = confirm('✅ Paiement confirmé ! Bienvenue dans Ask2Trip Pro 🎉\n\nCrée un compte pour ne plus jamais perdre ton accès Pro, même si tu changes d\'appareil ou de navigateur.');
+          if (go) showAuthModal();
         }
       }
     } catch {}
-  })();
+  };
 
   // Init counter on page load
   updateCounter();
@@ -3379,6 +3382,8 @@ window._sb.auth.getSession().then(({ data: { session } }) => {
   _syncProFromSupabase();
   updateNavAuthBtn();
   fetchAccountUsage();
+  // Vérif Stripe maintenant qu'on sait si l'user est connecté
+  if (window._checkStripeReturn) window._checkStripeReturn();
 });
 
 // Écoute les changements d'état auth (login, logout, magic link)
