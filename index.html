@@ -682,7 +682,7 @@
 
     /* ── PAYWALL ──────────────────────────────────── */
     .paywall-overlay {
-      display:none; position:fixed; inset:0; z-index:2000;
+      display:none; position:fixed; inset:0; z-index:10000;
       background:rgba(15,23,42,0.72); backdrop-filter:blur(8px);
       align-items:flex-start; justify-content:center;
       overflow-y:auto; padding:20px 0;
@@ -933,7 +933,7 @@
 
     /* ── AUTH MODAL ────────────────────────────────── */
     .auth-overlay {
-      position:fixed;inset:0;z-index:9999;
+      position:fixed;inset:0;z-index:10000;
       background:rgba(15,23,42,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
       display:flex;align-items:center;justify-content:center;padding:24px;
       opacity:0;pointer-events:none;transition:opacity 0.22s var(--ease);
@@ -1428,7 +1428,9 @@
       await new Promise(r => setTimeout(r, 400));
       document.getElementById('loading').classList.remove('show');
       renderResults(data, { destination, depart, dateDebut, dateFin, budget, voyageurs });
-      saveItinerary(data, { destination, depart, dateDebut, dateFin, budget, voyageurs });
+      saveItinerary(data, { destination, depart, dateDebut, dateFin, budget, voyageurs }).then(() => {
+        if (typeof fetchAccountUsage === 'function') fetchAccountUsage();
+      });
       showGenBanner();
       document.getElementById('results').classList.add('show');
       document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
@@ -1951,7 +1953,12 @@
   }
 
   function remaining() {
-    return isPro() ? Infinity : Math.max(0, FREE_LIMIT - getUsage().count);
+    if (isPro()) return Infinity;
+    // Si connecté et usage Supabase chargé, l'utiliser (cross-device)
+    if (window._sbUser && window._sbUsageCount !== null) {
+      return Math.max(0, FREE_LIMIT - window._sbUsageCount);
+    }
+    return Math.max(0, FREE_LIMIT - getUsage().count);
   }
 
   function updateCounter() {
@@ -3333,11 +3340,27 @@ function updateNavAuthBtn() {
   }
 }
 
+// Compte les générations du mois via Supabase (pour les users connectés)
+window._sbUsageCount = null; // null = non chargé
+async function fetchAccountUsage() {
+  if (!window._sbUser) { window._sbUsageCount = null; return; }
+  const firstOfMonth = new Date();
+  firstOfMonth.setDate(1); firstOfMonth.setHours(0,0,0,0);
+  const { count } = await window._sb
+    .from('itineraires')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', window._sbUser.id)
+    .gte('created_at', firstOfMonth.toISOString());
+  window._sbUsageCount = count || 0;
+  updateCounter();
+}
+
 // Charge la session existante au démarrage
 window._sb.auth.getSession().then(({ data: { session } }) => {
   window._sbUser = session?.user || null;
   _syncProFromSupabase();
   updateNavAuthBtn();
+  fetchAccountUsage();
 });
 
 // Écoute les changements d'état auth (login, logout, magic link)
@@ -3348,6 +3371,10 @@ window._sb.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN') {
     closeAuthModal();
     syncProToSupabase();
+    fetchAccountUsage();
+  }
+  if (event === 'SIGNED_OUT') {
+    window._sbUsageCount = null;
     updateCounter();
   }
 });
@@ -3398,15 +3425,24 @@ async function showAccountModal() {
   document.getElementById('authOverlay').classList.add('open');
 
   // Fetch historique
+  const histEl = document.getElementById('historySection');
+  if (!histEl) return;
+
+  if (!pro) {
+    histEl.innerHTML = `<div style="background:#f8fafc;border:1.5px dashed #e2e8f0;border-radius:12px;padding:14px 16px;text-align:center;">
+      <div style="font-size:20px;margin-bottom:6px;">🔒</div>
+      <p style="font-size:13px;font-weight:600;color:#0f172a;margin-bottom:4px;">Historique réservé aux Pro</p>
+      <p style="font-size:12px;color:#94a3b8;">Passe à Pro pour retrouver tous tes voyages générés.</p>
+    </div>`;
+    return;
+  }
+
   const { data: rows } = await window._sb
     .from('itineraires')
     .select('id, destination, nb_jours, voyageurs, budget, created_at')
     .eq('user_id', window._sbUser.id)
     .order('created_at', { ascending: false })
     .limit(8);
-
-  const histEl = document.getElementById('historySection');
-  if (!histEl) return;
 
   if (!rows || rows.length === 0) {
     histEl.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:6px 0;">Aucun voyage sauvegardé pour l\'instant.</p>';
