@@ -1979,8 +1979,6 @@
   function showPaywall(reason) {
     const el = document.getElementById('paywallReason');
     if (el) el.textContent = reason || 'Tu as utilisé ta génération gratuite ce mois-ci.';
-    document.getElementById('unlockForm').style.display = 'none';
-    document.getElementById('licenseMsg').textContent = '';
     document.getElementById('paywallModal').classList.add('show');
   }
 
